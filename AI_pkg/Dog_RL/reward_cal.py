@@ -21,9 +21,11 @@ def reward_cal(data: dict, prev_data: dict):
     decay_distance_to_goal = data["distance_to_goal"] - prev_data["distance_to_goal"]
     # print("decay_distance_to_goal: ", decay_distance_to_goal)
     distance_to_stright_line = data["distance_to_stright_line"]
+
+
     angle_x =  data["spot_angle"][0] if data["spot_angle"][0] < 180 else 360 - data["spot_angle"][0]
     # print("angle_x: ", angle_x)
     angle_z = data["spot_angle"][2] if data["spot_angle"][2] < 180 else 360 - data["spot_angle"][2]
-    reward = - decay_distance_to_goal - abs(distance_to_stright_line) - 1 / 180 * angle_x - 1 / 360 * angle_z
+    reward = - decay_distance_to_goal - 0.01 * abs(distance_to_stright_line) - 0.05 * angle_x - 0.05 * angle_z
 
     return reward
