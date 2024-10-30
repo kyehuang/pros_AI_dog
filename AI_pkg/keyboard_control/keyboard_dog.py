@@ -13,6 +13,7 @@ class keyboard_dog:
 
         # joint position        
         self.__joint_init_pos = [0.0, 25.0, 60.0, 0.0, 25.0, 60.0] # initial joint position
+        self.__motor_pos = [0, 40, -50, 0, -25, 60, 0, -25, 60, 0, 25, -60]
         self.__joint_pos = copy.copy(self.__joint_init_pos) # joint position
         # 0 = LF, RB : first joint
         # 1 = LF, RB : second joint
@@ -23,6 +24,9 @@ class keyboard_dog:
 
         # update flag
         self.__update_flag = True
+
+        # init routine
+        self.__init_dog_routine()
 
     def __update(self):
         try:            
@@ -61,7 +65,9 @@ class keyboard_dog:
                         self.__joint_pos[5] -= 5.0
                     elif c == ord('z'):
                         self.__joint_pos = copy.copy(self.__joint_init_pos)
-                    
+                    elif c == ord('o'):
+                        self.__handle_key_o()
+
                     elif c == ord('x'):
                         self.__update_flag = False
                     # publish spot actions 
@@ -122,9 +128,95 @@ class keyboard_dog:
         self.__stdscr.addstr(f"{self.__key_count:5d} Key '{chr(key)}' pressed!")
 
         # show receive data                
-        # self.__stdscr.move(1, 0)
-        # self.__stdscr.addstr(f"state: {state}")
+        self.__stdscr.move(1, 0)
+        self.__stdscr.addstr(f"state: {self.__joint_pos}")
         
+    def __init_dog_routine(self):
+        """
+        Initialize dog routine
+        """
+        # init dog routine
+        # self.__forward_First_Time_displacement   = [[0, 10, -50, 0, 0, 0, 0, -10, 50, 0, 0, 0],
+        #                                           [0, -10, 20, 0, 0, 0, 0, 10, -20, 0, 0, 0],
+        #                                           [0, -10, 20, 0, 0, 0, 0, 10, -20, 0, 0, 0],
+        #                                           [0, -20, 20, 0, 0, 0, 0, 20, -20, 0, 0, 0]]
+
+        # self.__forward_routine_left_displacement = [[0, 10, -50, 0, -10, 5, 0, -10, 50, 0, 10, -5],
+        #                                           [0, -10, 20, 0, -10, 5, 0, 10, -20, 0, 10, -5],
+        #                                           [0, -10, 20, 0, -10, 0, 0, 10, -20, 0, 10, 0],
+        #                                           [0, -20, 20, 0, 0, 0, 0, 20, -20, 0, 0, 0]]
+
+        # self.__forward_routine_right_displacement = [[0, 10, -5, 0, -10, 50, 0, -10, 5, 0, 10, -50],
+        #                                           [0, 10, -5, 0, 10, -20, 0, -10, 5, 0, -10, 20],
+        #                                           [0, 10, 0, 0, 10, -20, 0, -10, 0, 0, -10, 20],
+        #                                           [0, 0, 0, 0, 20, -20, 0, 0, 0, 0, -20, 20]]
+
+        # self.__forward_First_Time_displacement   = [[0.0, 20.0, 60.0, 0.0, 20.0, 60.0],
+        #                                             [0.0, 20.0, 60.0, 0.0, 20.0, 60.0],
+        #                                             [0.0, 20.0, 60.0, 0.0, 20.0, 60.0],
+        #                                             [0.0, 20.0, 60.0, 0.0, 20.0, 60.0]]
+
+        # self.__forward_routine_left_displacement = [[0.0, 20.0, 60.0, 0.0, 20.0, 60.0],
+        #                                             [0.0, 10.0, 80.0, 0.0, 20.0, 60.0],
+        #                                             [0.0,  5.0, 90.0, 0.0, 20.0, 60.0],
+        #                                             [0.0, 15.0, 90.0, 0.0, 20.0, 60.0],
+        #                                             [0.0, 20.0, 60.0, 0.0, 20.0, 60.0]]
+
+        # self.__forward_routine_right_displacement = [[0.0, 20.0, 60.0, 0.0, 20.0, 60.0],
+        #                                              [0.0, 20.0, 60.0, 0.0, 10.0, 80.0],
+        #                                              [0.0, 20.0, 60.0, 0.0,  5.0, 90.0],
+        #                                              [0.0, 20.0, 60.0, 0.0, 15.0, 90.0],
+        #                                              [0.0, 20.0, 60.0, 0.0, 20.0, 60.0]]
+        # self.__joint_init_pos = [0.0, 20.0, 60.0, 0.0, 25.0, 60.0]
+        self.__forward_1 = [[0.0, 25.0, 60.0, 0.0, 25.0, 60.0],
+                            [0.0, 10.0, 80.0, 0.0, 25.0, 60.0],
+                            [0.0,  5.0, 90.0, 0.0, 25.0, 60.0],                                                    
+                            [0.0, 25.0, 60.0, 0.0, 25.0, 60.0], 
+                            [0.0, 25.0, 60.0, 0.0, 25.0, 60.0],
+                            [0.0, 25.0, 60.0, 0.0, 10.0, 80.0],
+                            [0.0, 25.0, 60.0, 0.0,  5.0, 90.0],                                                     
+                            [0.0, 25.0, 60.0, 0.0, 25.0, 60.0]]
+
+        self.__forward_2 = [[0.0, 25.0, 60.0, 0.0, 25.0, 60.0],
+                            [0.0, 25.0, 60.0, 0.0, 10.0, 80.0],
+                            [0.0, 25.0, 60.0, 0.0,  5.0, 90.0],                                                     
+                            [0.0, 25.0, 60.0, 0.0, 25.0, 60.0],
+                            [0.0, 25.0, 60.0, 0.0, 25.0, 60.0],
+                            [0.0, 10.0, 80.0, 0.0, 25.0, 60.0],
+                            [0.0,  5.0, 90.0, 0.0, 25.0, 60.0],                                                    
+                            [0.0, 25.0, 60.0, 0.0, 25.0, 60.0]]
+
+        
+        
+
+    def __handle_key_o(self):        
+        times = 10
+
+        for _ in range(times):
+            for i in range(len(self.__forward_2)):                                                            
+                self.__joint_pos = self.__forward_2[i]
+                self.__publish_spot_actions()
+                time.sleep(0.1)
+            
+                
+            # if(self.__flag_First_move == True):
+            #     for i in range(len(self.__forward_routine_left_displacement)):                                                            
+            #         self.__joint_pos = self.__forward_First_Time_displacement[i]
+            #         self.__publish_spot_actions()
+            #     self.__flag_First_move = False
+            # elif(self.__flag_which_leg == False):
+            #     for i in range(len(self.__forward_routine_left_displacement)):                                                            
+            #         self.__joint_pos = self.__forward_routine_left_displacement[i]
+            #         self.__publish_spot_actions()
+            #     self.__flag_which_leg = True
+            # else:
+            #     for i in range(len(self.__forward_routine_left_displacement)):                                                            
+            #         self.__joint_pos = self.__forward_routine_right_displacement[i]
+            #         self.__publish_spot_actions()
+            #     self.__flag_which_leg = False
+                                                                                                
+                self.__stdscr.refresh()
+
     def run(self):
         """
         Run keyboard control
