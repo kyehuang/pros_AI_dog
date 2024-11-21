@@ -36,7 +36,6 @@ def calculate_individual_pitch_yaw_roll(joints):
 
     return segment_angles
 
-
 def calculate_position(orgin_position:np, angle:float, length:float):
     """
     Calculate the position of the next joint given the angle and length.
@@ -110,3 +109,13 @@ def angle_transform_to_unity(angles, motor_offsets):
         angles[i] = angle_normalize(angles[i])
     return angles
 
+def angle_to_motor_angle(angles):
+    """
+    this function is used to convert the angle to motor angle
+    """
+    offset = [-20, 20]
+
+    motor_angles = [0.0, 0,0]
+    motor_angles[0] = angles[1][1]  + 180 + offset[0]
+    motor_angles[1] = (-(-angles[1][1] + angles[2][1]) + 360 - offset[1]) % 360
+    return motor_angles
