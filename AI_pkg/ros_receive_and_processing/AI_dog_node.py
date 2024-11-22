@@ -7,7 +7,7 @@ class AI_dog_node(Node):
     def __init__(self):
         super().__init__("AI_dog_node")
         self.get_logger().info("AI_dog_node has started.")
-        
+
         # Initialize subscriber node
         self.__subscriber_node()
 
@@ -85,7 +85,7 @@ class AI_dog_node(Node):
             10,
         )
         self.__subscriber_motor_states
-    
+
     ## Publish function
 
     # Publish spot_actions
@@ -99,12 +99,12 @@ class AI_dog_node(Node):
         # Ensure all values in spot_actions are float
         if not all(isinstance(action, float) for action in spot_actions):
             raise ValueError("All spot actions must be floats.")
-        
+
         # turn deg to rad
         spot_actions = [self.__deg_to_rad(action) for action in spot_actions]
-        
+
         msg = JointTrajectoryPoint()
-        msg.positions = spot_actions        
+        msg.positions = spot_actions
         self.__publisher_spot_actions.publish(msg)
 
 
@@ -139,6 +139,9 @@ class AI_dog_node(Node):
     ## Utility function
 
     def reset_unity(self):
+        """
+        Reset Unity environment
+        """
         msg = Bool()
         msg.data = True #  Reset Unity environment
         self.__publisher_dog_scene_reset.publish(msg)
