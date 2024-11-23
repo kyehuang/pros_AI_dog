@@ -36,18 +36,6 @@ def calculate_individual_pitch_yaw_roll(joints):
 
     return segment_angles
 
-def calculate_position(orgin_position:np, angle:float, length:float):
-    """
-    Calculate the position of the next joint given the angle and length.
-    :param orgin_position: orgin position
-    :param angle: angle
-    :param length: length
-    :return: position
-    """
-    x = orgin_position[0] + length * np.cos(angle)
-    y = orgin_position[1] + length * np.sin(angle)
-    return np.array([x, y])
-
 def calculate_feet_positions(height, setp_length):
     """
     Calculate the position of the feet given the height and step length.
@@ -56,26 +44,10 @@ def calculate_feet_positions(height, setp_length):
     :return: position
     """
     feet_positions = [np.array([ 1.5 * setp_length, -height]),
-                      np.array([ 0.5 * setp_length, -height]), 
+                      np.array([ 0.5 * setp_length, -height]),
                       np.array([-0.5 * setp_length, -height]),
                       np.array([-1.5 * setp_length, -height])]
     return feet_positions
-
-def calculate_motor_positions(first_joint_position, angles, lengths):
-    """
-    Calculate the motor positions given the angles and lengths.
-    :param first_joint_position: first joint position
-    :param angles: angles
-    :param lengths: lengths
-    :return: motor positions
-    """
-    position = first_joint_position
-    motor_positions = [position]
-    for i in range(len(angles)):
-        next_position = calculate_position(position, np.radians(angles[i]), lengths[i])
-        position = next_position
-        motor_positions.append(next_position)
-    return motor_positions
 
 def angle_normalize(angle):
     """
@@ -105,8 +77,8 @@ def angle_transform_to_unity(angles, motor_offsets):
     angle_2 = - ( angle_1 + angles[1] - 270)
 
     angles = [angle_1 + motor_offsets[0], angle_2 + motor_offsets[1]]
-    for i in range(len(angles)):
-        angles[i] = angle_normalize(angles[i])
+    for i, angle in enumerate(angles):
+        angles[i] = angle_normalize(angle)
     return angles
 
 def angle_to_motor_angle(angles):

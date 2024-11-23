@@ -1,3 +1,6 @@
+"""
+This file contains the configuration for the Inverse Kinematics module.
+"""
 import numpy as np
 
 JOINT_LENGTH = [0.2101, 0.2080]
