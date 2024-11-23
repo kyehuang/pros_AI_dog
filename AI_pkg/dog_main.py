@@ -1,23 +1,20 @@
-import rclpy
+"""
+This script is the main script for controlling the dog by pressing the keyboard or using PPO.
+"""
 import threading
-import gymnasium as gym
-from stable_baselines3 import PPO
-from stable_baselines3.common.monitor import Monitor
-
+import rclpy
 from ros_receive_and_processing.AI_dog_node import AI_dog_node
-from keyboard_control.keyboard_dog import keyboard_dog
-from Dog_RL.RL_training_main import CustomDogEnv
-from Dog_RL.PPOConfig import PPOConfig
-from Dog_RL.custom_callback import CustomCallback
+from keyboard_control.keyboard_dog import KeyboardDog
+from utils.gym_manger import GymManager
 
 
-def init_AI_dog_node():    
+def init_ai_dog_node():
     """
     Initialize AI_dog_node
 
     Returns:
         AI_dog_node: AI_dog_node instance
-        thread: threading.Thread instance        
+        thread: threading.Thread instance
     """
     rclpy.init()
     node = AI_dog_node()
@@ -26,62 +23,27 @@ def init_AI_dog_node():
     return node, thread
 
 def print_usage():
+    """
+    Print the usage of this script.
+    """
     print("modes:")
     print(" 1 -- control the dog by pressing the keyboard")
     print(" 2 -- control the dog by PPO")
 
-def gym_env_register(node):
-        gym.register(
-            id = CustomDogEnv.ENV_NAME,
-            entry_point = "Dog_RL.RL_training_main:CustomDogEnv",
-        )
-        return gym.make("CustomDogEnv-v0", node = node)
-
-def load_or_create_model_PPO(env, PPO_Mode : str = "forward"):
-    # Load or create the model
-    if PPO_Mode == "forward":
-        try:
-            model = PPO.load(PPOConfig.LOAD_MODEL_PATH)
-            env = Monitor(env)
-            model.set_env(env)
-            print(f"Model loaded successfully from {PPOConfig.LOAD_MODEL_PATH}")
-            print(f"Model learning rate: {model.lr_schedule(1.0)}")
-            print(f"Model policy network: {model.policy}")
-        except FileNotFoundError:
-            model = PPO("MultiInputPolicy",
-                        env, verbose = 1, learning_rate = PPOConfig.LEARNING_RATE,
-                        n_steps = PPOConfig.N_STEPS, batch_size = PPOConfig.BATCH_SIZE, 
-                        n_epochs = PPOConfig.N_EPOCHS, device = "cuda")
-
-            print("Model is not found. Train a new model.")
-
-
-    return model
-
-def train_model_PPO(env):
-    # Train the model using PPO
-    model = load_or_create_model_PPO(
-        env, PPO_Mode = "forward"
-    )
-    custom_callback = CustomCallback(PPOConfig.SAVE_MODEL_PATH, PPOConfig.SAVE_MODEL_FREQUENCE)
-    model.learn(
-        total_timesteps = PPOConfig.TOTAL_TIME_STEPS,
-        callback = custom_callback,
-        log_interval = 1,
-    )
-
-
-
 def main(mode):
+    """
+    The main function for controlling the dog by pressing the keyboard or using PPO.
+    """
     # Initialize AI_dog_node
-    node, ros_thread = init_AI_dog_node()
+    node, ros_thread = init_ai_dog_node()
 
     # Control the dog by pressing the keyboard
     if mode == "1":
-        keyboard_dog(node).run()           
+        keyboard_dog = KeyboardDog(node)
+        keyboard_dog.run()
     elif mode == "2":
-        env = gym_env_register(node)
-        train_model_PPO(env)
+        env = GymManager().gym_env_register(node)
+        GymManager().train_model_ppo(env)
     else:
         print("Please type the correct numbers.")
 
@@ -94,5 +56,5 @@ def main(mode):
 
 if __name__ == "__main__":
     print_usage()
-    mode = input("Enter mode: ")
-    main(mode)
+    chosen_mode = input("Enter mode: ")
+    main(chosen_mode)
