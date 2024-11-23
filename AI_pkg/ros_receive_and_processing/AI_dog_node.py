@@ -2,6 +2,8 @@ from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from trajectory_msgs.msg import JointTrajectoryPoint
 from std_msgs.msg import Bool
+import rclpy
+import threading
 
 class AI_dog_node(Node):
     def __init__(self):
@@ -22,8 +24,6 @@ class AI_dog_node(Node):
             "spot_states": False,
             "target_pos": False,
         }
-
-
 
     ## Initialize publisher
     def __publisher_node(self):
@@ -106,7 +106,6 @@ class AI_dog_node(Node):
         msg = JointTrajectoryPoint()
         msg.positions = spot_actions
         self.__publisher_spot_actions.publish(msg)
-
 
     ## Callback function for subscriber
 

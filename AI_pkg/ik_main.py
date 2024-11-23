@@ -36,7 +36,7 @@ def calculate_ik(positions, joints=None, joint_length=None):
 
 def linear_interpolate_path(joint_angles, points_per_segment=10):
     """
-    Perform forward linear interpolation on joint angle data without including the return path 
+    Perform forward linear interpolation on joint angle data without including the return path
     from the last position back to the first.
 
     Parameters:

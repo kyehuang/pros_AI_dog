@@ -35,7 +35,7 @@ def main(mode):
     The main function for controlling the dog by pressing the keyboard or using PPO.
     """
     # Initialize AI_dog_node
-    node, ros_thread = init_ai_dog_node()
+    node, ros_thread = GymManager().init_ai_dog_node()
 
     # Control the dog by pressing the keyboard
     if mode == "1":
