@@ -47,8 +47,8 @@ class KeyboardDog:
                     self.__print_basic_info(input_char)
 
                     # determine the action based on the key pressed
-                    if input_char in KeyboardConfig.KEY_ACTION_MAPPING:
-                        joint, value = KeyboardConfig.KEY_ACTION_MAPPING[input_char]
+                    if chr(input_char) in KeyboardConfig.KEY_ACTION_MAPPING:
+                        joint, value = KeyboardConfig.KEY_ACTION_MAPPING[chr(input_char)]
                         self.__joint_pos[joint] += value
 
                     elif input_char == ord('z'):
