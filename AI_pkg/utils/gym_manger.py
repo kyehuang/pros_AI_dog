@@ -81,6 +81,19 @@ class GymManager:
         thread.start()
         return node, thread
 
+    @staticmethod
+    def shutdown_ai_dog_node(node, thread):
+        """
+        Shutdown AI_dog_node
+
+        Args:
+            node: AI_dog_node instance
+            thread: threading.Thread instance
+        """
+        node.destroy_node()
+        rclpy.shutdown()
+        thread.join()
+
     def train_model_ppo(self, env):
         """
         Train the model using PPO.

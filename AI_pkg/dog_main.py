@@ -48,9 +48,7 @@ def main(mode):
         print("Please type the correct numbers.")
 
     # Shutdown AI_dog_node
-    node.destroy_node()
-    rclpy.shutdown()
-    ros_thread.join()
+    GymManager().shutdown_ai_dog_node(node, ros_thread)
     print("[INFO] AI_dog_node has stopped.")
 
 

@@ -44,7 +44,7 @@ class CustomDogEnv(gym.Env):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete action
-        self.action_space = Discrete(3)
+        self.action_space = Discrete(5)
 
         # Example for using image as input:
         self.observation_space = Discrete(144)
@@ -52,6 +52,9 @@ class CustomDogEnv(gym.Env):
         self.cnt = 0
         self.total_eisode_reward = 0
         self.__pre_observation = None
+
+        self.motor_init_states = [0.0, 135.0, 90.0, 0.0, 135.0, 90.0, 
+                                  0.0, 135.0, 90.0, 0.0, 135.0, 90.0]
 
 
     def step(self, action):
@@ -120,15 +123,25 @@ class CustomDogEnv(gym.Env):
         print("Resetting environment")
 
         # Reset the environment
-        self.__node.reset_unity()
-        new_moter_states = [
-                            0.0, 25.0, -30.0, 0.0, -25.0, 30.0,
-                            0.0,-25.0, 30.0, 0.0, 25.0, -30.0]
-        self.__node.publish_spot_actions(new_moter_states)
-        time.sleep(1)
+        self.make_unity_env_reset()
 
         # Get observation
         observation, state = observation_cal.get_observation(self.__node)
         self.__pre_observation = observation
 
         return state, {}
+
+    def make_unity_env_reset(self):
+        """
+        Reset the Unity environment
+        """
+        try:
+            self.__node.reset_unity()
+            for _ in range(10):
+                self.__node.publish_spot_actions(self.motor_init_states)
+                time.sleep(0.1)
+            return True
+        except Exception as e:
+            print(f"Error in make_unity_env_reset: {e}")
+            return False
+    
