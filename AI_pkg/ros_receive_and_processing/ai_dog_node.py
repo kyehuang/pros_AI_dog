@@ -1,11 +1,16 @@
+"""
+This file contains the AI_dog_node class, which is a ROS2 node that subscribes to the
+following topics:
+"""
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from trajectory_msgs.msg import JointTrajectoryPoint
 from std_msgs.msg import Bool
-import rclpy
-import threading
 
-class AI_dog_node(Node):
+class AIDogNode(Node):
+    """
+    AI_dog_node class to culculate the dog's state and publish the action to the dog.
+    """
     def __init__(self):
         super().__init__("AI_dog_node")
         self.get_logger().info("AI_dog_node has started.")
@@ -17,27 +22,29 @@ class AI_dog_node(Node):
         self.__publisher_node()
 
         # Initialize variables
+
         self.__dog_data : dict = {} # dog data
         self.__latest_data : dict = None # latest data
-        self.__dog_updated_flag : dict[str, bool] = { # dog updated flag
-            "motor_states": False,
-            "spot_states": False,
-            "target_pos": False,
+        # dog updated flag
+        self.__dog_updated_flag : dict[str, bool] = {
+            # "motor_states": False,
+            "spot_states": False
+            # "target_pos": False,
         }
 
     ## Initialize publisher
     def __publisher_node(self):
         """
         Publisher node for AI_dog_node
-        """    
+        """
 
         # Publisher for spot_actions
         self.__publisher_spot_actions = self.create_publisher(
             JointTrajectoryPoint,
             "spot_actions",
             10,
-        )            
-        self.__publisher_spot_actions
+        )
+        # self.__publisher_spot_actions
 
         # Publisher for reset unity
         self.__publisher_dog_scene_reset = self.create_publisher(
@@ -45,23 +52,13 @@ class AI_dog_node(Node):
             "reset_unity",
             10,
         )
-        self.__publisher_dog_scene_reset
+        # self.__publisher_dog_scene_reset
 
     ## Initialize subscriber
     def __subscriber_node(self):
         """
         Subscriber node for AI_dog_node
         """
-
-        # Subscriber for four_feet_state
-        self.__subscriber_four_feet_state = self.create_subscription(
-            Float32MultiArray,
-            "four_feet_state",
-            self.__listener_callback_four_feet_state,
-            10,
-        )
-        self.__subscriber_four_feet_state
-
         self.__subscriber_spot_rotate_state = self.create_subscription(
             Float32MultiArray,
             "spot_rotate_state",
@@ -69,22 +66,6 @@ class AI_dog_node(Node):
             10,
         )
         self.__subscriber_spot_rotate_state
-
-        self.__subscriber_targe_pos = self.create_subscription(
-            Float32MultiArray,
-            "target_state",
-            self.__listener_callback_target_pos,
-            10,
-        )
-        self.__subscriber_targe_pos
-
-        self.__subscriber_motor_states = self.create_subscription(
-            Float32MultiArray,
-            "spot_motor_state",
-            self.__listener_callback_motor_states,
-            10,
-        )
-        self.__subscriber_motor_states
 
     ## Publish function
 
@@ -109,30 +90,11 @@ class AI_dog_node(Node):
 
     ## Callback function for subscriber
 
-    # Callback function for four_feet_state
-    def __listener_callback_four_feet_state(self, msg):
-        pass
-        # self.get_logger().info("I heard: %s" % msg.data)
-
     # Callback function for spot_rotate_state
     def __listener_callback_spot_rotate_state(self, msg):
         # self.get_logger().info("I heard: %s" % msg.data)
         self.__dog_data["spot_states"] = msg.data
         self.__dog_updated_flag["spot_states"] = True
-        self.__check_all_data_updated()
-
-    # Callback function for target_pos
-    def __listener_callback_target_pos(self, msg):
-        # self.get_logger().info("I heard: %s" % msg.data)
-        self.__dog_data["target_pos"] = msg.data
-        self.__dog_updated_flag["target_pos"] = True
-        self.__check_all_data_updated()
-
-    # Callback function for motor_states
-    def __listener_callback_motor_states(self, msg):
-        # self.get_logger().info("I heard: %s" % msg.data)
-        self.__dog_data["motor_states"] = msg.data
-        self.__dog_updated_flag["motor_states"] = True
         self.__check_all_data_updated()
 
     ## Utility function
@@ -172,6 +134,15 @@ class AI_dog_node(Node):
 
     # deg to rad
     def __deg_to_rad(self, deg):
+        """
+        Convert degrees to radians.
+
+        Args:
+            deg (float): Angle in degrees.
+
+        Returns:
+            float: Angle in radians.
+        """
         return deg * 0.01745329252
 
     # check if all data is updated
@@ -198,8 +169,8 @@ class AI_dog_node(Node):
                 the latest data in AI_dog_node. Ready to be used by other nodes.
         """
         state_dict = {
-            "motor_states": self.__dog_data["motor_states"],
-            "spot_states": self.__dog_data["spot_states"],
-            "target_pos": self.__dog_data["target_pos"],
+            # "motor_states": self.__dog_data["motor_states"],
+            "spot_states": self.__dog_data["spot_states"]
+            # "target_pos": self.__dog_data["target_pos"],
         }
         return state_dict
