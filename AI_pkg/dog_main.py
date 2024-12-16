@@ -1,26 +1,9 @@
 """
 This script is the main script for controlling the dog by pressing the keyboard or using PPO.
 """
-import threading
-import rclpy
-from ros_receive_and_processing.AI_dog_node import AI_dog_node
 from keyboard_control.keyboard_dog import KeyboardDog
 from utils.gym_manger import GymManager
 
-
-def init_ai_dog_node():
-    """
-    Initialize AI_dog_node
-
-    Returns:
-        AI_dog_node: AI_dog_node instance
-        thread: threading.Thread instance
-    """
-    rclpy.init()
-    node = AI_dog_node()
-    thread = threading.Thread(target = rclpy.spin, args = (node,))
-    thread.start()
-    return node, thread
 
 def print_usage():
     """
