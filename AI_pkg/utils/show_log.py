@@ -61,7 +61,7 @@ class ShowLog:
         plt.figure(figsize=(10, 6))
         plt.plot(round_std['Round'], round_std['Total Reward'],
                         marker='o', linestyle='-', color='g')
-        plt.title(f"Standard Deviation of Total Rewards Over Rounds ({self.num_rounds} Episodes per Round)")
+        plt.title(f"Reward Std Dev Over {self.num_rounds} Rounds")
         plt.xlabel(f"Round ({self.num_rounds} Episodes per Round)")
         plt.ylabel("Standard Deviation of Total Reward")
         plt.grid(True)
@@ -72,7 +72,8 @@ class ShowLog:
         """
         Plot the moving average of the rewards.
         """
-        data_frame['Moving Average'] = data_frame['Total Reward'].rolling(window=self.num_rounds).mean()
+        moving_avg = data_frame['Total Reward'].rolling(window=self.num_rounds).mean()
+        data_frame['Moving Average'] = moving_avg
         plt.figure(figsize=(10, 6))
         plt.plot(data_frame['Episode'], data_frame['Total Reward'],
                     label='Total Reward', color='b', alpha=0.5)
@@ -104,7 +105,7 @@ class ShowLog:
 
         plt.figure(figsize=(10, 6))
         plt.plot(data_frame['Episode'], data_frame['Cumulative Reward'],
-                 marker='o', linestyle='-', color='orange')
+                 linestyle='-', color='orange')
         plt.title("Cumulative Total Rewards Over Episodes")
         plt.xlabel("Episode")
         plt.ylabel("Cumulative Total Reward")
@@ -127,18 +128,16 @@ class ShowLog:
         self.plot_cumulative_rewards(data_frame)
 
 if __name__ == "__main__":
-    file_path = 'episode_results.log'
-
     # Parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file_path", type=str, default=file_path)
+    parser.add_argument("--file_path", type=str, default="episode_results.log")
     parser.add_argument("-r", type=int, default=20)
 
     # Get arguments
     args = parser.parse_args()
-    file_path = args.file_path
-    num_rounds = args.r
+    FILE_PATH = args.file_path
+    NUM_ROUNDS = args.r
 
     # Show log
-    show_log = ShowLog(file_path, num_rounds)
+    show_log = ShowLog(FILE_PATH, NUM_ROUNDS)
     show_log.show_log()
