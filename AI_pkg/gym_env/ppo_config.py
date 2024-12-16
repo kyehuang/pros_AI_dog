@@ -44,7 +44,7 @@ class PPOconfig:
     SAVE_MODEL_PATH: str = "./Model/PPO_spider_2024-09-11.pt"
 
     # training PPO model
-    SAVE_MODEL_FREQUENCE: int = 1024 * 16
+    SAVE_MODEL_FREQUENCE: int = 1024
     TOTAL_TIME_STEPS: int = 1024 * 128 * 256 * 8
     RESET_TOWARD_ANGLE_THRESHOLD: float = 25.0 # degrees
 
