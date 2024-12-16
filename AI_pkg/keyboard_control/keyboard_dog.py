@@ -6,7 +6,7 @@ import time
 import copy
 import dataclasses
 
-from ros_receive_and_processing import AI_dog_node
+from ros_receive_and_processing import ai_dog_node
 from keyboard_control.keyboard_action import KeyboardAction
 from keyboard_control.keyboard_config import KeyboardConfig
 
@@ -15,7 +15,7 @@ class KeyboardDog:
     """
     This class is used to control the Spot robot using the keyboard
     """
-    def __init__(self, node: AI_dog_node):
+    def __init__(self, node: ai_dog_node):
         # AI_dog_node instance
         self.__node = node # AI_dog_node instance
         self.__stdscr = None # curses instance
