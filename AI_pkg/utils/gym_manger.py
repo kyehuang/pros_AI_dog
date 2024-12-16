@@ -2,16 +2,16 @@
 This module is used to manage the gym environment and
 train the model using PPO.
 """
+import threading
+import rclpy
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-import rclpy
-import threading
 
 from gym_env.rl_training_main import CustomDogEnv
 from gym_env.ppo_config import PPOconfig
 from gym_env.custom_callback import CustomCallback
-from ros_receive_and_processing.AI_dog_node import AI_dog_node
+from ros_receive_and_processing.ai_dog_node import AIDogNode
 
 class GymManager:
     """
@@ -76,7 +76,7 @@ class GymManager:
             thread: threading.Thread instance
         """
         rclpy.init()
-        node = AI_dog_node()
+        node = AIDogNode()
         thread = threading.Thread(target = rclpy.spin, args = (node,))
         thread.start()
         return node, thread
