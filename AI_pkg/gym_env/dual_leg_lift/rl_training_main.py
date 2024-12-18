@@ -9,8 +9,8 @@ import gymnasium as gym
 from gymnasium.spaces import Discrete
 
 from ros_receive_and_processing.ai_dog_node import AIDogNode
-from gym_env import observation_cal
-from gym_env import reward_cal
+from gym_env.dual_leg_lift import observation_cal
+from gym_env.dual_leg_lift import reward_cal
 
 
 
@@ -27,11 +27,11 @@ def log_episode_results(total_eisode_reward, total_step = 0):
 
 
 
-class CustomDogEnv(gym.Env):
+class DualLegLiftDogEnv(gym.Env):
     """
-    Custom gym environment for the AI_dog_node
+    DualLegLift gym environment for the AI_dog_node
     """
-    ENV_NAME = 'CustomDogEnv-v0'
+    ENV_NAME = 'DualLegLiftDogEnv-v0'
 
     def __init__(self, node : AIDogNode):
         super().__init__()

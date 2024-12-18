@@ -8,7 +8,7 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 
-from gym_env.rl_training_main import CustomDogEnv
+from gym_env.dual_leg_lift.rl_training_main import DualLegLiftDogEnv
 from gym_env.ppo_config import PPOconfig
 from gym_env.custom_callback import CustomCallback
 from ros_receive_and_processing.ai_dog_node import AIDogNode
@@ -29,10 +29,10 @@ class GymManager:
             gym.Env: gym environment instance
         """
         gym.register(
-            id = CustomDogEnv.ENV_NAME,
-            entry_point = "gym_env.rl_training_main:CustomDogEnv",
+            id = DualLegLiftDogEnv.ENV_NAME,
+            entry_point = "gym_env.dual_leg_lift.rl_training_main:DualLegLiftDogEnv",
         )
-        return gym.make("CustomDogEnv-v0", node = node)
+        return gym.make("DualLegLiftDogEnv-v0", node = node)
 
     @staticmethod
     def load_or_create_model_ppo(env, ppo_mode : str = "forward"):
