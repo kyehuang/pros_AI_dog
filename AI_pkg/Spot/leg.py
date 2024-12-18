@@ -29,7 +29,7 @@ class Leg():
         Returns:
             dict: the dictionary of joint angles
         """
-        x = target_position[0] - base_postion[0]
+        x = -(target_position[0] - base_postion[0])
         y = target_position[1] - base_postion[1]
         z = target_position[2] - base_postion[2]
 
@@ -50,7 +50,6 @@ class Leg():
         ### calaculate first joint 2 angle
 
         joint_2_angle = np.arctan(x/d) + np.arcsin(self.joint_lengths[2] * np.sin(joint_3_angle)/g)
-        # print(np.degrees(np.arcsin(leg.joint_lengths[2] * np.sin(joint_3_angle)/g)))
 
         return {"joint_1_angle": np.degrees(joint_1_angle),
                 "joint_2_angle": np.degrees(joint_2_angle),
@@ -62,7 +61,8 @@ if __name__ == "__main__":
     LF_angles = [0, 0, 0]
 
     leg1 = Leg(LF_TYPE, LF_joint_lengths, LF_angles)
-    targe = [1, 1, -2.8]
+    targe = [0, 1, 1]
     base =  [0, 0, 0]
     result = leg1.calculate_ik(target_position=targe, base_postion=base)
-    print(result)
+    print("result",result)
+
