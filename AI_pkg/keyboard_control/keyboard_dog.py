@@ -55,6 +55,8 @@ class KeyboardDog:
                         self.__joint_pos = copy.copy(KeyboardConfig.JOINT_INIT_POS)
                     elif input_char == ord('o'):
                         self.__handle_key_o()
+                    elif input_char == ord('p'):
+                        self.__handle_key_p()
                     elif input_char == ord('m'):
                         self.__joint_pos = copy.copy(KeyboardConfig.JOINT_INIT_POS)
                         self.__node.reset_unity()
@@ -125,12 +127,24 @@ class KeyboardDog:
         times = 1
 
         for _ in range(times):
-            for _, state in enumerate(KeyboardAction.FORWARD):
+            for _, state in enumerate(KeyboardAction.FORWARD_STEP_1):
                 self.__joint_pos = state
                 # self.__publish_spot_actions_symmetry()
                 self.__node.publish_spot_actions(state)
-                time.sleep(0.01)
+                time.sleep(0.02)
                 self.__stdscr.refresh()
+
+    def __handle_key_p(self):
+        times = 1
+
+        for _ in range(times):
+            for _, state in enumerate(KeyboardAction.FORWARD_STEP_2):
+                self.__joint_pos = state
+                # self.__publish_spot_actions_symmetry()
+                self.__node.publish_spot_actions(state)
+                time.sleep(0.02)
+                self.__stdscr.refresh()
+
 
     def run(self):
         """
