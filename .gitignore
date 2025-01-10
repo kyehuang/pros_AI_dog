@@ -167,3 +167,5 @@ AI_pkg/Model/*
 
 # result
 AI_pkg/result/*
+AI_pkg/data/*
+AI_pkg/Spot/action/*
