@@ -2,10 +2,10 @@
 This file contains the AI_dog_node class, which is a ROS2 node that subscribes to the
 following topics:
 """
+import threading
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Bool
 from trajectory_msgs.msg import JointTrajectoryPoint
-from std_msgs.msg import Bool
 
 class AIDogNode(Node):
     """
@@ -22,29 +22,23 @@ class AIDogNode(Node):
         self.__publisher_node()
 
         # Initialize variables
+        self.__latest_data : dict = None
 
-        self.__dog_data : dict = {} # dog data
-        self.__latest_data : dict = None # latest data
         # dog updated flag
-        self.__dog_updated_flag : dict[str, bool] = {
-            # "motor_states": False,
-            "spot_states": False
-            # "target_pos": False,
-        }
+        self._date_received_event = threading.Event()
+
 
     ## Initialize publisher
     def __publisher_node(self):
         """
         Publisher node for AI_dog_node
         """
-
         # Publisher for spot_actions
         self.__publisher_spot_actions = self.create_publisher(
             JointTrajectoryPoint,
             "spot_actions",
             10,
         )
-        # self.__publisher_spot_actions
 
         # Publisher for reset unity
         self.__publisher_dog_scene_reset = self.create_publisher(
@@ -52,25 +46,23 @@ class AIDogNode(Node):
             "reset_unity",
             10,
         )
-        # self.__publisher_dog_scene_reset
 
     ## Initialize subscriber
     def __subscriber_node(self):
         """
         Subscriber node for AI_dog_node
         """
-        self.__subscriber_spot_rotate_state = self.create_subscription(
+        __subscriber_spot_rotate_state = self.create_subscription(
             Float32MultiArray,
-            "spot_rotate_state",
-            self.__listener_callback_spot_rotate_state,
+            "spot_states",
+            self.__listener_callback_spot_states,
             10,
         )
-        self.__subscriber_spot_rotate_state
 
     ## Publish function
 
     # Publish spot_actions
-    def publish_spot_actions(self, spot_actions):
+    def publish_spot_actions(self, spot_actions: list) -> None:
         """
         Publish spot_actions
 
@@ -89,13 +81,13 @@ class AIDogNode(Node):
         self.__publisher_spot_actions.publish(msg)
 
     ## Callback function for subscriber
+    def __listener_callback_spot_states(self, msg: Float32MultiArray) -> None:
+        # self.get_logger().info(f"I heard: {msg.data}")
+        self.__latest_data = {
+            "spot_states": msg.data,
+        }
 
-    # Callback function for spot_rotate_state
-    def __listener_callback_spot_rotate_state(self, msg):
-        # self.get_logger().info("I heard: %s" % msg.data)
-        self.__dog_data["spot_states"] = msg.data
-        self.__dog_updated_flag["spot_states"] = True
-        self.__check_all_data_updated()
+        self._date_received_event.set()
 
     ## Utility function
 
@@ -104,7 +96,7 @@ class AIDogNode(Node):
         Reset Unity environment
         """
         msg = Bool()
-        msg.data = True #  Reset Unity environment
+        msg.data = True
         self.__publisher_dog_scene_reset.publish(msg)
 
     # Get latest data
@@ -112,28 +104,37 @@ class AIDogNode(Node):
         """
         Reset latest data
         """
+        self._date_received_event.clear()
         self.__latest_data = None
 
     # Get latest data
-    def get_latest_data(self):
+    def get_latest_data(self, timeout: float =1.0) -> dict:
         """
         Get latest data
 
-        Returns:
-            dict: Dictionary of dog data
-        """
-        dog_data = self.__latest_data
+        Args:
+            timeout (float): Timeout for waiting for data.
+                             unit: second
 
-        i = 0 # counter
-        while dog_data is None:
-            if (i % 90000000 == 0) and i != 0:
-                self.get_logger().info("Waiting for data...")
-            dog_data = self.__latest_data
-            i += 1
-        return dog_data
+        Returns:
+            dict: Latest data.
+        """
+        if self.__latest_data is not None:
+            return self.__latest_data
+
+        while True:
+            received = self._date_received_event.wait(timeout=timeout)
+            if received and self.__latest_data is not None:
+                break
+
+            self.get_logger().warn("Timeout waiting for data")
+
+        self._date_received_event.clear()
+        return self.__latest_data
 
     # deg to rad
-    def __deg_to_rad(self, deg):
+    @staticmethod
+    def __deg_to_rad(deg: float) -> float:
         """
         Convert degrees to radians.
 
@@ -144,33 +145,3 @@ class AIDogNode(Node):
             float: Angle in radians.
         """
         return deg * 0.01745329252
-
-    # check if all data is updated
-    def __check_all_data_updated(self):
-        """
-        Check if all data is updated
-
-        Returns:
-            dict: Dictionary of dog data
-        """
-        if all(self.__dog_updated_flag.values()):
-            for key in self.__dog_updated_flag:
-                self.__dog_updated_flag[key] = False
-            # latest data is updated
-            self.__latest_data = self.__prepose_data()
-
-    # prepose data
-    def __prepose_data(self):
-        """
-        Prepose data
-
-        Returns:
-            dict: Dictionary of dog data
-                the latest data in AI_dog_node. Ready to be used by other nodes.
-        """
-        state_dict = {
-            # "motor_states": self.__dog_data["motor_states"],
-            "spot_states": self.__dog_data["spot_states"]
-            # "target_pos": self.__dog_data["target_pos"],
-        }
-        return state_dict
