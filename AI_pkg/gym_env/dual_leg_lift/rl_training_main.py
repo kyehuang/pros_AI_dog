@@ -12,11 +12,8 @@ from ros_receive_and_processing.ai_dog_node import AIDogNode
 from gym_env.dual_leg_lift import observation_cal
 from gym_env.dual_leg_lift import reward_cal
 
-
-
 logging.basicConfig(filename='episode_results.log', level=logging.INFO,
                     format='%(asctime)s - Episode: %(message)s')
-
 
 def log_episode_results(total_eisode_reward, total_step = 0):
     """
@@ -24,8 +21,6 @@ def log_episode_results(total_eisode_reward, total_step = 0):
     """
     msg = f"Total episode reward: {total_eisode_reward} Total steps: {total_step}"
     logging.info(msg)
-
-
 
 class DualLegLiftDogEnv(gym.Env):
     """
@@ -52,7 +47,8 @@ class DualLegLiftDogEnv(gym.Env):
         self.motor_init_states = [0.0, 135.0, 90.0, 0.0, 135.0, 90.0,
                                   0.0, 135.0, 90.0, 0.0, 135.0, 90.0]
         self.first_motor_angle = 0.0
-        self.step_timestep  = 0.1
+        self.step_timestep  = 0.03
+        self.targer_step = 50
         self.__start_time = time.time()
 
     def step(self, action):
@@ -68,20 +64,19 @@ class DualLegLiftDogEnv(gym.Env):
         done = False
 
         direction = action - 3
-        speed = 3.0
-        self.first_motor_angle += speed * direction
+        scalar = 1.8
+        self.first_motor_angle = scalar * direction
 
         new_moter_states = [
                         self.first_motor_angle,
                             135.0, 90.0, 0.0, 150.0, 150.0,
                         -self.first_motor_angle,
                             135.0, 90.0, 0.0, 150.0, 150.0]
-
         elisped_time = time.time() - self.__start_time
         if elisped_time < self.step_timestep:
             time.sleep(self.step_timestep - elisped_time)
-        else:
-            time.sleep(self.step_timestep)
+
+    
         self.__node.publish_spot_actions(new_moter_states)
         self.__start_time = time.time()
 
@@ -93,12 +88,12 @@ class DualLegLiftDogEnv(gym.Env):
 
         # Check if the episode is done
         self.cnt += 1
-        if self.cnt == 20:
+        if self.cnt == self.targer_step:
 
             print("Total episode reward: ", self.total_eisode_reward)
             reward += 100
             done = True
-            time.sleep(10)
+            time.sleep(1)
         else:
             angle_x_raw = observation["spot_angle"][0]
             angle_x =  angle_x_raw if angle_x_raw < 180 else 360 - angle_x_raw
@@ -112,7 +107,7 @@ class DualLegLiftDogEnv(gym.Env):
             if (angle > 12) and self.cnt > 0:
                 terminal = True
                 done = True
-                reward -= 100 * (1 - self.cnt / 20)
+                reward -= 100 * (1 - self.cnt / self.targer_step)
 
         self.total_eisode_reward += reward
         if done:
@@ -135,7 +130,7 @@ class DualLegLiftDogEnv(gym.Env):
 
         # Reset the environment
         self.make_unity_env_reset()
-        # time.sleep(10)
+        time.sleep(1)
 
         # Get observation
         observation, state = observation_cal.get_observation(self.__node)
@@ -153,7 +148,7 @@ class DualLegLiftDogEnv(gym.Env):
             self.__node.reset_unity()
             for _ in range(20):
                 self.__node.publish_spot_actions(self.motor_init_states)
-                time.sleep(0.1)
+                time.sleep(self.step_timestep)
             return True
         except ImportError as imp_err:
             print(f"Error in make_unity_env_reset: {imp_err}")

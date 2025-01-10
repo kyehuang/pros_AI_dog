@@ -43,7 +43,7 @@ def reward_cal(data_list: dict, prev_data_list: dict, step: int):
     else:
         reward -= cost
 
-    reward += 2 * step
+    reward += 1.1 * step
 
     if angle_z < 3:
         reward += 5
