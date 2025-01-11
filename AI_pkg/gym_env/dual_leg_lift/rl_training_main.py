@@ -35,7 +35,7 @@ class DualLegLiftDogEnv(gym.Env):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete action
-        self.action_space = Discrete(7)
+        self.action_space = Discrete(9)
 
         # Example for using image as input:
         self.observation_space = Discrete(169)
@@ -63,7 +63,7 @@ class DualLegLiftDogEnv(gym.Env):
         terminal = False
         done = False
 
-        direction = action - 3
+        direction = action - 4
         scalar = 1.8
         self.first_motor_angle = scalar * direction
 
