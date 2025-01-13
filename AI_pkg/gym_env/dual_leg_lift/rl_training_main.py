@@ -104,10 +104,10 @@ class DualLegLiftDogEnv(gym.Env):
             angle = np.sqrt(angle_x**2 + angle_z**2)
             print("step", self.cnt, "angle_x: ", angle_x, " angle_z: ", angle_z, " angle: ", angle)
 
-            if (angle > 12) and self.cnt > 0:
+            if (angle > 15) and self.cnt > 0:
                 terminal = True
                 done = True
-                reward -= 100 * (1 - self.cnt / self.targer_step)
+                reward -= 500 * (1 - (self.cnt / self.targer_step))
 
         self.total_eisode_reward += reward
         if done:
