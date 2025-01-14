@@ -8,6 +8,8 @@ Logs the time interval (delta) between consecutive callbacks.
 
 import time
 import roslibpy
+import numpy as np
+import matplotlib.pyplot as plt
 
 # 全域變數 (不建議在大型專案大量使用，但小範例可接受)
 ITERATION_COUNT = 0
@@ -20,12 +22,38 @@ def callback_spot_actions(message, last_callback_time):
     """
     global ITERATION_COUNT
     current_time = time.time()
-    delta = current_time - last_callback_time[0]
-    print(f'#{ITERATION_COUNT} 花費時間: {delta:.4f} 秒')
-    last_callback_time[0] = current_time
+    # print(f'#{ITERATION_COUNT} 花費時間: {delta:.4f} 秒')
+    last_callback_time.append(current_time)
     ITERATION_COUNT += 1
 
+def show_plot_and_statistics(time_elapsed):
+    """
+    Show scatter plot of time_elapsed and print statistics.
+    """
+    x_values = range(len(time_elapsed))
 
+    plt.scatter(x_values, time_elapsed, c='blue')
+    plt.title("Scatter Plot of Independent Times")
+    plt.xlabel("Index")
+    plt.ylabel("Time Value")
+    plt.grid(True)
+    plt.show()
+
+    te_array = np.array(time_elapsed)
+
+    # 計算平均值與標準差
+    mean = np.mean(te_array)
+    std = np.std(te_array)
+
+    # 設定要排除離群值的閾值（z_score_threshold）
+    z_score_threshold = 3  # 通常可設定 2、2.5、3 或你想要的其他範圍
+
+    # 留下 |x - mean| / std < z_score_threshold 的資料
+    filtered_time_elapsed = [
+        x for x in te_array
+        if abs(x - mean) / std < z_score_threshold
+    ]
+    print(f"average: {np.mean(filtered_time_elapsed):.4f}")
 def main():
     """
     Main function:
@@ -96,6 +124,9 @@ def main():
     except KeyboardInterrupt:
         print('收到中斷指令，準備結束...')
 
+    time_elapsed = [last_callback_time[i] - last_callback_time[i - 1]
+                    for i in range(10, len(last_callback_time))]
+    show_plot_and_statistics(time_elapsed)
     # 5. 關閉連線
     subscriber_spot_actions.unsubscribe()
     publisher_spot_state.unadvertise()
