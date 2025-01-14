@@ -35,7 +35,7 @@ class DualLegLiftDogEnv(gym.Env):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete action
-        self.action_space = Discrete(9)
+        self.action_space = Discrete(11)
 
         # Example for using image as input:
         self.observation_space = Discrete(169)
@@ -63,8 +63,8 @@ class DualLegLiftDogEnv(gym.Env):
         terminal = False
         done = False
 
-        direction = action - 4
-        scalar = 1.8
+        direction = action - 5
+        scalar = 1.0
         self.first_motor_angle = scalar * direction
 
         new_moter_states = [
@@ -76,7 +76,7 @@ class DualLegLiftDogEnv(gym.Env):
         if elisped_time < self.step_timestep:
             time.sleep(self.step_timestep - elisped_time)
 
-    
+
         self.__node.publish_spot_actions(new_moter_states)
         self.__start_time = time.time()
 
@@ -90,10 +90,10 @@ class DualLegLiftDogEnv(gym.Env):
         self.cnt += 1
         if self.cnt == self.targer_step:
 
-            print("Total episode reward: ", self.total_eisode_reward)
+            # print("Total episode reward: ", self.total_eisode_reward)
             reward += 100
             done = True
-            time.sleep(1)
+            # time.sleep(1)
         else:
             angle_x_raw = observation["spot_angle"][0]
             angle_x =  angle_x_raw if angle_x_raw < 180 else 360 - angle_x_raw
@@ -102,7 +102,7 @@ class DualLegLiftDogEnv(gym.Env):
             angle_z = angle_z_raw if angle_z_raw < 180 else 360 - angle_z_raw
 
             angle = np.sqrt(angle_x**2 + angle_z**2)
-            print("step", self.cnt, "angle_x: ", angle_x, " angle_z: ", angle_z, " angle: ", angle)
+            # print("step", self.cnt, "angle_x: ", angle_x, "angle_z: ", angle_z, "angle: ", angle)
 
             if (angle > 15) and self.cnt > 0:
                 terminal = True
