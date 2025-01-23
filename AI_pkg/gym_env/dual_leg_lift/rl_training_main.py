@@ -35,7 +35,8 @@ class DualLegLiftDogEnv(gym.Env):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete action
-        self.action_space = Box(low=-10.0, high=10.0, shape=(1,), dtype=np.float32)
+        # self.action_space = Box(low=-10.0, high=10.0, shape=(1,), dtype=np.float32)
+        self.action_space = Discrete(11)
 
         # Example for using image as input:
         self.observation_space = Discrete(169)
@@ -63,14 +64,14 @@ class DualLegLiftDogEnv(gym.Env):
         terminal = False
         done = False
 
-        # direction = action - 5
-        # scalar = 1.0
-        # self.first_motor_angle = scalar * direction
+        direction = action - 5
+        scalar = 1.8
+        self.first_motor_angle = scalar * direction
         action = float(action)
         new_moter_states = [
-                        action,
+                        self.first_motor_angle,
                             135.0, 90.0, 0.0, 150.0, 150.0,
-                        -action,
+                        -self.first_motor_angle,
                             135.0, 90.0, 0.0, 150.0, 150.0]
         elisped_time = time.time() - self.__start_time
         if elisped_time < self.step_timestep:
@@ -112,7 +113,7 @@ class DualLegLiftDogEnv(gym.Env):
         self.total_eisode_reward += reward
         if done:
             print("step: ", self.cnt, " total_eisode_reward: ", self.total_eisode_reward,
-                  " motor_angle: ", action)
+                  " motor_angle: ", self.first_motor_angle)
             log_episode_results(self.total_eisode_reward, self.cnt)
             self.cnt = 0
             self.total_eisode_reward = 0
