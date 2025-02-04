@@ -71,6 +71,8 @@ class DualLegFrontRaiseDogEnv(gym.Env):
         action = float(action)
         
         new_moter_states = KeyboardAction.FORWARD_STEP_1[self.cnt]
+        new_moter_states[3] = self.first_motor_angle
+        new_moter_states[9] = -self.first_motor_angle
 
         elisped_time = time.time() - self.__start_time
         if elisped_time < self.step_timestep:
