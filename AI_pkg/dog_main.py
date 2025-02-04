@@ -11,7 +11,8 @@ def print_usage():
     """
     print("modes:")
     print(" 1 -- control the dog by pressing the keyboard")
-    print(" 2 -- control the dog by PPO")
+    print(" 2 -- control the dog by PPO (DualLegLiftDogEnv)")
+    print(" 3 -- control the dog by PPO (DualLegFrontRaiseDogEnv)")
 
 def main(mode):
     """
@@ -26,6 +27,11 @@ def main(mode):
         keyboard_dog.run()
     elif mode == "2":
         env = GymManager().gym_env_register(node)
+        GymManager().train_model_ppo(env)
+    elif mode == "3":
+        env = GymManager().gym_env_register(node,
+                            env_name = "DualLegFrontRaiseDogEnv",
+                            env_path = "gym_env.dual_leg_front_raise.rl_training_main")
         GymManager().train_model_ppo(env)
     else:
         print("Please type the correct numbers.")

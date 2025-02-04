@@ -1,5 +1,5 @@
 """
-This module defines a custom gym environment for the AI_dog_node.
+This file is used to trian the spot balancing using the reinforcement learning
 """
 import logging
 import time
@@ -9,8 +9,9 @@ import gymnasium as gym
 from gymnasium.spaces import Discrete, Box
 
 from ros_receive_and_processing.ai_dog_node import AIDogNode
-from gym_env.dual_leg_lift import observation_cal
-from gym_env.dual_leg_lift import reward_cal
+from gym_env.dual_leg_front_raise import observation_cal
+from gym_env.dual_leg_front_raise import reward_cal
+from keyboard_control.keyboard_action import KeyboardAction
 
 logging.basicConfig(filename='episode_results.log', level=logging.INFO,
                     format='%(asctime)s - Episode: %(message)s')
@@ -22,9 +23,9 @@ def log_episode_results(total_eisode_reward, total_step = 0):
     msg = f"Total episode reward: {total_eisode_reward} Total steps: {total_step}"
     logging.info(msg)
 
-class DualLegLiftDogEnv(gym.Env):
+class DualLegFrontRaiseDogEnv(gym.Env):
     """
-    DualLegLift gym environment for the AI_dog_node
+    DualLegFrontRaise gym environment for the AI_dog_node
     """
     ENV_NAME = 'DogEnv-v0'
 
@@ -44,12 +45,12 @@ class DualLegLiftDogEnv(gym.Env):
         self.cnt = 0
         self.total_eisode_reward = 0
         self.__pre_observation = None
-
+        
         self.motor_init_states = [0.0, 135.0, 90.0, 0.0, 135.0, 90.0,
                                   0.0, 135.0, 90.0, 0.0, 135.0, 90.0]
         self.first_motor_angle = 0.0
         self.step_timestep  = 0.03
-        self.targer_step = 50
+        self.targer_step = KeyboardAction.FORWARD_STEP_1.__len__()
         self.__start_time = time.time()
 
     def step(self, action):
@@ -68,11 +69,9 @@ class DualLegLiftDogEnv(gym.Env):
         scalar = 1.8
         self.first_motor_angle = scalar * direction
         action = float(action)
-        new_moter_states = [
-                        self.first_motor_angle,
-                            135.0, 90.0, 0.0, 150.0, 150.0,
-                        -self.first_motor_angle,
-                            135.0, 90.0, 0.0, 150.0, 150.0]
+        
+        new_moter_states = KeyboardAction.FORWARD_STEP_1[self.cnt]
+
         elisped_time = time.time() - self.__start_time
         if elisped_time < self.step_timestep:
             time.sleep(self.step_timestep - elisped_time)
