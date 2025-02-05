@@ -37,7 +37,7 @@ class GymManager:
         return gym.make("DogEnv-v0", node = node)
 
     @staticmethod
-    def load_or_create_model_ppo(env, ppo_mode : str = "forward"):
+    def load_or_create_model_ppo(env, ppo_mode : str = "forward", ppo_config = PPOconfig):
         """
         Load or create the model for PPO.
 
@@ -51,19 +51,19 @@ class GymManager:
         # Load or create the model
         if ppo_mode == "forward":
             try:
-                model = PPO.load(PPOconfig.LOAD_MODEL_PATH)
+                model = PPO.load(ppo_config.LOAD_MODEL_PATH)
                 env = Monitor(env)
                 model.set_env(env)
-                print(f"Model loaded successfully from {PPOconfig.LOAD_MODEL_PATH}")
+                print(f"Model loaded successfully from {ppo_config.LOAD_MODEL_PATH}")
                 print(f"Model learning rate: {model.lr_schedule(1.0)}")
                 print(f"Model policy network: {model.policy}")
             except FileNotFoundError:
                 # env = Monitor(env, filename="./logs")
                 model = PPO("MlpPolicy",
-                            env, verbose = 1, learning_rate = PPOconfig.LEARNING_RATE,
-                            n_steps = PPOconfig.N_STEPS, batch_size = PPOconfig.BATCH_SIZE,
-                            n_epochs = PPOconfig.N_EPOCHS,device = "cuda")
-                # policy_kwargs=PPOconfig.POLICY_KWARGS
+                            env, verbose = 1, learning_rate = ppo_config.LEARNING_RATE,
+                            n_steps = ppo_config.N_STEPS, batch_size = ppo_config.BATCH_SIZE,
+                            n_epochs = ppo_config.N_EPOCHS,device = "cuda")
+                # policy_kwargs=ppo_config.POLICY_KWARGS
 
                 print("Model is not found. Train a new model.")
         return model
@@ -96,17 +96,18 @@ class GymManager:
         rclpy.shutdown()
         thread.join()
 
-    def train_model_ppo(self, env):
+    def train_model_ppo(self, env, ppo_config : PPOconfig = PPOconfig()):
         """
         Train the model using PPO.
         """
         # Train the model using PPO
         model = self.load_or_create_model_ppo(
-            env=env, ppo_mode = "forward"
+            env=env, ppo_mode = "forward", ppo_config = ppo_config
         )
-        custom_callback = CustomCallback(PPOconfig.SAVE_MODEL_PATH, PPOconfig.SAVE_MODEL_FREQUENCE)
+        custom_callback = CustomCallback(
+            ppo_config.SAVE_MODEL_PATH, ppo_config.SAVE_MODEL_FREQUENCE)
         model.learn(
-            total_timesteps = PPOconfig.TOTAL_TIME_STEPS,
+            total_timesteps = ppo_config.TOTAL_TIME_STEPS,
             callback = custom_callback,
             log_interval = 1,
         )
