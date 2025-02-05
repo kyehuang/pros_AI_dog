@@ -24,6 +24,8 @@ class GymManager:
 
         Args:
             node: AI_dog_node instance
+            env_name: str, default is "DualLegLiftDogEnv"
+            env_path: str, default is "gym_env.dual_leg_lift.rl_training_main"
 
         Returns:
             gym.Env: gym environment instance
