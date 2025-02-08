@@ -62,7 +62,7 @@ class GymManager:
                 model = PPO("MlpPolicy",
                             env, verbose = 1, learning_rate = ppo_config.LEARNING_RATE,
                             n_steps = ppo_config.N_STEPS, batch_size = ppo_config.BATCH_SIZE,
-                            n_epochs = ppo_config.N_EPOCHS,device = "cuda")
+                            n_epochs = ppo_config.N_EPOCHS,device = "cpu")
                 # policy_kwargs=ppo_config.POLICY_KWARGS
 
                 print("Model is not found. Train a new model.")
