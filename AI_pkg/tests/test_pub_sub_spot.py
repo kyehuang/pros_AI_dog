@@ -22,7 +22,8 @@ def callback_spot_actions(message, last_callback_time):
     """
     global ITERATION_COUNT
     current_time = time.time()
-    # print(f'#{ITERATION_COUNT} 花費時間: {delta:.4f} 秒')
+    delta = current_time - last_callback_time[-1]
+    print(f'#{ITERATION_COUNT} 花費時間: {delta:.4f} 秒')
     last_callback_time.append(current_time)
     ITERATION_COUNT += 1
 
