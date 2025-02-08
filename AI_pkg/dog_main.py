@@ -5,6 +5,7 @@ from keyboard_control.keyboard_dog import KeyboardDog
 from utils.gym_manger import GymManager
 
 from gym_env.dual_leg_front_raise.ppo_config_front_raise import PPOconfigFrontRaise
+from gym_env.dual_leg_front.ppo_config_front import PPOconfigFront
 
 def print_usage():
     """
@@ -34,6 +35,11 @@ def main(mode):
                             env_name = "DualLegFrontRaiseDogEnv",
                             env_path = "gym_env.dual_leg_front_raise.rl_training_main")
         GymManager().train_model_ppo(env, ppo_config=PPOconfigFrontRaise())
+    elif mode == "4":
+        env = GymManager().gym_env_register(node,
+                            env_name = "DualLegFrontDogEnv",
+                            env_path = "gym_env.dual_leg_front.rl_training_main")
+        GymManager().train_model_ppo(env, ppo_config=PPOconfigFront())
     else:
         print("Please type the correct numbers.")
 
