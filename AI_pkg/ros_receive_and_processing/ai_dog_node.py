@@ -3,6 +3,7 @@ This file contains the AI_dog_node class, which is a ROS2 node that subscribes t
 following topics:
 """
 import threading
+import copy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Bool
 from trajectory_msgs.msg import JointTrajectoryPoint
@@ -73,11 +74,33 @@ class AIDogNode(Node):
         if not all(isinstance(action, float) for action in spot_actions):
             raise ValueError("All spot actions must be floats.")
 
+        actions_copy = copy.deepcopy(spot_actions)
+
+        # LF, RB : first joint
+        actions_copy[0] = 90 + actions_copy[0]  # LF
+        actions_copy[6] = 90 + actions_copy[6]  # RB
+        # LF, RB : second joint
+        actions_copy[1] = actions_copy[1]       # LF
+        actions_copy[7] = 180 - actions_copy[7] # RB
+        # LF, RB : third joint
+        actions_copy[2] = 180 - actions_copy[2] # LF
+        actions_copy[8] = actions_copy[8]       # RB
+
+        # RF, LB : first joint
+        actions_copy[3] = 90 + actions_copy[3]
+        actions_copy[9] = 90 + actions_copy[9]
+        # RF, LB : second joint
+        actions_copy[4]  = 180 -actions_copy[4]
+        actions_copy[10] = actions_copy[10]
+        # RF, LB : third joint
+        actions_copy[5]  = actions_copy[5]
+        actions_copy[11] = 180 - actions_copy[11]
+
         # turn deg to rad
-        spot_actions = [self.__deg_to_rad(action) for action in spot_actions]
+        actions_copy = [self.__deg_to_rad(action) for action in actions_copy]
 
         msg = JointTrajectoryPoint()
-        msg.positions = spot_actions
+        msg.positions = actions_copy
         self.__publisher_spot_actions.publish(msg)
 
     ## Callback function for subscriber
