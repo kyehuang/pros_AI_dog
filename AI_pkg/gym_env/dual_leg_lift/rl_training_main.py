@@ -35,8 +35,8 @@ class DualLegLiftDogEnv(gym.Env):
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete action
-        # self.action_space = Box(low=-10.0, high=10.0, shape=(1,), dtype=np.float32)
-        self.action_space = Discrete(11)
+        self.action_space = Box(low=-5.0, high=5.0, shape=(1,), dtype=np.float32)
+        # self.action_space = Discrete(11)
 
         # Example for using image as input:
         self.observation_space = Discrete(169)
@@ -48,8 +48,8 @@ class DualLegLiftDogEnv(gym.Env):
         self.motor_init_states = [0.0, 135.0, 90.0, 0.0, 135.0, 90.0,
                                   0.0, 135.0, 90.0, 0.0, 135.0, 90.0]
         self.first_motor_angle = 0.0
-        self.step_timestep  = 0.03
-        self.targer_step = 50
+        self.step_timestep  = 0.02
+        self.targer_step = 100
         self.__start_time = time.time()
 
     def step(self, action):
@@ -64,15 +64,14 @@ class DualLegLiftDogEnv(gym.Env):
         terminal = False
         done = False
 
-        direction = action - 5
-        scalar = 1.8
-        self.first_motor_angle = scalar * direction
+        # direction = action - 5
+        # scalar = 1.8
         action = float(action)
+        self.first_motor_angle = action
+        
         new_moter_states = [
-                        self.first_motor_angle,
-                            135.0, 90.0, 0.0, 150.0, 150.0,
-                        -self.first_motor_angle,
-                            135.0, 90.0, 0.0, 150.0, 150.0]
+                        0.0, 150.0, 150.0,  self.first_motor_angle, 135.0, 90.0,
+                        0.0, 150.0, 150.0, -self.first_motor_angle, 135.0, 90.0]
         elisped_time = time.time() - self.__start_time
         if elisped_time < self.step_timestep:
             time.sleep(self.step_timestep - elisped_time)
@@ -131,7 +130,7 @@ class DualLegLiftDogEnv(gym.Env):
 
         # Reset the environment
         self.make_unity_env_reset()
-        time.sleep(1)
+        time.sleep(2)
 
         # Get observation
         observation, state = observation_cal.get_observation(self.__node)
