@@ -117,40 +117,64 @@ def draw_leg_trajectory(leg_postion:np.array)->None:
 
 # Define the leg positions for lifting and standing
 
+# leg_lift = np.array([
+#                     [0.0000, 0.1501, -0.3000],
+#                     # [0.0000, 0.0355, -0.2875],
+#                     [0.0000, 0.1501, -0.2750],
+#                     [0.0000, 0.1501, -0.2500],
+#                     [0.0250, 0.1501, -0.2375],
+#                     [0.0375, 0.0355, -0.2250],
+#                     [0.0500, 0.0355, -0.2125],
+#                     [0.0625, 0.0355, -0.20],
+#                     [0.0750, 0.0355, -0.20],
+#                     [0.0875, 0.0355, -0.20],
+#                     [0.1000, 0.0355, -0.20],
+#                     [0.1125, 0.0355, -0.20],
+#                     [0.1250, 0.0355, -0.20],
+#                     [0.1375, 0.0355, -0.20],
+#                     [0.1500, 0.0355, -0.20],
+#                     [0.1750, 0.0355, -0.2150],
+#                     [0.2000, 0.0355, -0.2250],
+#                     [0.2250, 0.0355, -0.2500],
+#                     [0.2500, 0.0355, -0.2750],
+#                     [0.2500, 0.0355, -0.300],
+#                     [0.2500, 0.0355, -0.300],
+# ])
+
 leg_lift = np.array([
-                    [0.0000, 0.0355, -0.3000],
-                    # [0.0000, 0.0355, -0.2875],
-                    [0.0000, 0.0355, -0.2750],
-                    [0.0000, 0.0355, -0.2500],
-                    [0.0250, 0.0355, -0.2375],
-                    [0.0375, 0.0355, -0.2250],
-                    [0.0500, 0.0355, -0.2125],
-                    [0.0625, 0.0355, -0.20],
-                    [0.0750, 0.0355, -0.20],
-                    [0.0875, 0.0355, -0.20],
-                    [0.1000, 0.0355, -0.20],
-                    [0.1125, 0.0355, -0.20],
-                    [0.1250, 0.0355, -0.20],
-                    [0.1375, 0.0355, -0.20],
-                    [0.1500, 0.0355, -0.20],
-                    [0.1750, 0.0355, -0.2150],
-                    [0.2000, 0.0355, -0.2250],
-                    [0.2250, 0.0355, -0.2500],
-                    [0.2500, 0.0355, -0.2750],
-                    [0.2500, 0.0355, -0.300],
-                    [0.2500, 0.0355, -0.300],
+                    [0.0000, 0.0701, -0.25], #
+                    [0.0000, 0.0701, -0.24],
+                    [0.0000, 0.0701, -0.23],
+                    [0.0000, 0.0701, -0.22],
+                    [0.0000, 0.0701, -0.21],
+                    [0.0000, 0.0701, -0.20], #
+                    [0.0000, 0.0701, -0.19],
+                    [0.0000, 0.0701, -0.18],
+                    [0.0000, 0.0701, -0.17],
+                    [0.0000, 0.0701, -0.16],
+                    [0.0000, 0.0701, -0.15], #
+                    [0.01, 0.0701, -0.15],
+                    [0.02, 0.0701, -0.15],
+                    [0.03, 0.0701, -0.15],
+                    [0.04, 0.0701, -0.15],
+                    [0.05, 0.0701, -0.15], #
+                    [0.06, 0.0701, -0.15],
+                    [0.07, 0.0701, -0.15],
+                    [0.08, 0.0701, -0.15],
+                    [0.09, 0.0701, -0.15],
+                    [0.1, 0.0701, -0.15], #
+                    [0.1, 0.0701, -0.17],
+                    [0.1, 0.0701, -0.19],
+                    [0.1, 0.0701, -0.21],
+                    [0.1, 0.0701, -0.23],
+                    [0.1, 0.0701, -0.25], #
                     ])
 
-# leg_lift = np.array([
-#                     [0.0000, 0.0355, -0.3],
-#                     [0.0000, 0.0355, -0.2750],
-#                     [0.0000, 0.0355, -0.2500],
-#                     [0.0000, 0.0355, -0.2250],
-#                     [0.0000, 0.0355, -0.20]])
+leg_stand = np.array([[0.0, 0.0701, -0.25]] * len(leg_lift))
+# 1: x axis, 2: y axis, 3: z axis
 
-leg_stand = np.array([[0.0, 0.0355, -0.3]] * len(leg_lift))
-
-leg_LF = Leg("left Forward", [0.0355, 0.2001, 0.2001], [0, 0, 0])
+leg_LF = Leg("left Forward", [0.0701, 0.1501, 0.1451], [0, 0, 0])
+# 1: first leg, 2: second leg 3: third leg
 
 leg_stand_test = make_linear_interpolation([0.15, 0.0355, -0.3],
                                            [0.0, 0.0355, -0.3],len(leg_lift))
@@ -158,12 +182,9 @@ leg_stand_test = make_linear_interpolation([0.15, 0.0355, -0.3],
 #                                            [0.0, 0.0355, -0.3],len(leg_lift))
 
 draw_leg_trajectory(leg_lift)
-draw_leg_trajectory(leg_stand_test)
+# draw_leg_trajectory(leg_stand_test)
 # exit()
-# delete the last point
-leg_stand_test = leg_stand_test[:-1]
-leg_stand = leg_stand[:-1]
-leg_lift = leg_lift[:-1]
+
 # Calculate the motor angles for lifting and standing
 
 motor_lift_angles = calculate_ik(leg_lift, leg_LF)
@@ -190,7 +211,7 @@ motor_angles = [
      motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2]]
      for motor_1, motor_2 in zip(leg_stand_test_angles, motor_lift_angles)
 ]
-print("spot step LEFT",motor_angles)
+# print("spot step LEFT",motor_angles)
 
 # Store the motor angles as a CSV file
 # motor_angles_file_path = store_list_as_csv(motor_angles,
@@ -202,7 +223,7 @@ motor_angles = [
      motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2]]
      for motor_1, motor_2 in zip(motor_lift_angles, leg_stand_test_angles)
 ]
-print("spot step RIGHT",motor_angles)
+# print("spot step RIGHT",motor_angles)
 
 # Store the motor angles as a CSV file
 # motor_angles_file_path = store_list_as_csv(motor_angles,
