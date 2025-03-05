@@ -173,7 +173,7 @@ leg_INIT = np.array([
 leg_stand = np.array([[0.0, 0.0701, -0.25]] * len(leg_INIT))
 # 1: x axis, 2: y axis, 3: z axis
 
-leg_LF = Leg("left Forward", [0.0701, 0.1501, 0.1451], [0, 0, 0])
+leg_LF = Leg([0.0701, 0.1501, 0.1451], [0, 0, 0])
 # 1: first leg, 2: second leg 3: third leg
 
 leg_stand_test = make_linear_interpolation([0.15, 0.0355, -0.3],

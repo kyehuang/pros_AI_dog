@@ -11,9 +11,7 @@ class Leg():
     """
     This class defines the leg of the Spot robot
     """
-    def __init__(self, leg_type: str,
-                 joint_lengths: list, angles: list):
-        self.leg_type = leg_type
+    def __init__(self, joint_lengths: list, angles: list):
         self.joint_lengths = joint_lengths
         self.angles = angles
 
@@ -36,19 +34,18 @@ class Leg():
         # print(x, y, z)
         ### calaculate first joint 1 angle
         c = np.sqrt(z * z + y * y)
-        d = np.sqrt(c * c - self.joint_lengths[0] * self.joint_lengths[0])
+        d = np.sqrt(c * c - self.joint_lengths[0]**2)
         joint_1_angle = np.arctan(d/self.joint_lengths[0]) + np.arctan(y/-z)
         # print(np.degrees(joint_1_angle))
 
         ### calaculate first joint 3 angle
         g = np.sqrt(x * x + d * d)
-        numerator = g * g - self.joint_lengths[1] * self.joint_lengths[1] - self.joint_lengths[2] * self.joint_lengths[2]
+        numerator = g * g - self.joint_lengths[1]**2 - self.joint_lengths[2]**2
         denominator = 2 * self.joint_lengths[1] * self.joint_lengths[2]
         joint_3_angle = np.arccos(numerator/denominator)
         # print(np.degrees(joint_3_angle))
 
         ### calaculate first joint 2 angle
-
         joint_2_angle = np.arctan(x/d) + np.arcsin(self.joint_lengths[2] * np.sin(joint_3_angle)/g)
 
         return {"joint_1_angle": np.degrees(joint_1_angle),
@@ -57,12 +54,10 @@ class Leg():
 
 if __name__ == "__main__":
     LF_joint_lengths = [1, 2, 2]
-    LF_TYPE = "left"
     LF_angles = [0, 0, 0]
 
-    leg1 = Leg(LF_TYPE, LF_joint_lengths, LF_angles)
+    leg1 = Leg(LF_joint_lengths, LF_angles)
     targe = [0, 1, 1]
     base =  [0, 0, 0]
     result = leg1.calculate_ik(target_position=targe, base_postion=base)
     print("result",result)
-
