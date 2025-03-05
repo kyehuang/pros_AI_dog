@@ -9,7 +9,7 @@ class KeyboardConfig:
     Keyboard configuration
     """
     # Keyboard keys
-    JOINT_INIT_POS = [0.0, 135.0, 90.0, 0.0, 135.0, 90.0]
+    JOINT_INIT_POS = [0.0, 121.52, 64.26, 0.0, 121.52, 64.26]
     # initial joint position
     KEY_ACTION_MAPPING = {
         'q': (0, 5.0),

@@ -57,12 +57,11 @@ class KeyboardDog:
                 if input_char != curses.ERR:
                     # show receive data
                     self.__key_count += 1
-                    self.__print_basic_info(input_char)
 
                     # determine the action based on the key pressed
                     if chr(input_char) in KeyboardConfig.KEY_ACTION_MAPPING:
                         joint, value = KeyboardConfig.KEY_ACTION_MAPPING[chr(input_char)]
-                        self.__joint_pos[joint] += value
+                        self.__joint_pos[joint] += value /5
 
                     elif input_char == ord('z'):
                         self.__joint_pos = copy.copy(KeyboardConfig.JOINT_INIT_POS)
@@ -76,6 +75,8 @@ class KeyboardDog:
                         self.__update_flag = False
                     # publish spot actions
                     self.__publish_spot_actions_symmetry()
+                    self.__print_basic_info(input_char)
+
 
                 else:
                     self.__print_basic_info(' ')
@@ -242,6 +243,6 @@ class KeyboardDog:
         try:
             self.__update()
         finally:
-            curses.endwin()
+            pass
 
         print("[INFO] Keyboard control has stopped.")
