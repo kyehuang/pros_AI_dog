@@ -1,118 +1,230 @@
 """
-This is the main file for testing the Inverse Kinematics moudule.
+This module contains functions for calculating the inverse kinematics of a leg
 """
-from IK.fabrik import fabrik
-from IK import config
-from IK.utils import calculate_individual_pitch_yaw_roll, angle_to_motor_angle
 import numpy as np
+from Spot.leg import Leg
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
-def calculate_ik(positions, joints=None, joint_length=None):
+def make_linear_interpolation(start_points: np.array,
+                              end_points: np.array, num_points: int) -> np.array:
     """
-    this function is used to calculate the inverse kinematics
+    Create a linear interpolation between start and end points.
 
-    Parameters:
-        positions (list): the list of positions of the end effector
+    Args:
+        start_points (np.array): The starting points of the interpolation.
+        end_points (np.array): The ending points of the interpolation.
+        num_points (int): The number of points to interpolate between start and end.
 
     Returns:
-        list: the list of motor angles
+        np.array: An array containing the interpolated points.
     """
-    # init the joints and joint_length
-    if joints is None:
-        joints = config.JOINTS
-    if joint_length is None:
-        joint_length = config.JOINT_LENGTH
 
-    # calculate the motor angles
-    motor_angles = []
-    print("positions", positions)
-    for position in positions:
-        joints = fabrik(position, joints, joint_length, tolerance=1e-5, max_iter=1000)
-        motor_angles.append(angle_to_motor_angle(calculate_individual_pitch_yaw_roll(joints)))
-        print("joints", joints)
-        print("motor angles", calculate_individual_pitch_yaw_roll(joints))
-        print("=====================================")
-    return motor_angles
+    # Generate linear interpolation points
+    leg = np.linspace(start_points, end_points, num_points)
 
-def linear_interpolate_path(joint_angles, points_per_segment=10):
+    # Repeat the array to ensure consistent length
+    repetitions = (num_points + 2) // num_points
+    leg = np.tile(leg, (repetitions, 1))
+
+    return leg
+
+def rotate_list(lst, shift):
     """
-    Perform forward linear interpolation on joint angle data without including the return path
-    from the last position back to the first.
+    Rotates a 2D list by shifting elements downward.
 
-    Parameters:
-        joint_angles (list): A 2D list of initial joint angle data.
-        points_per_segment (int): Number of interpolation points per segment.
+    Args:
+        lst (list of list of int/float): The input 2D list to rotate.
+        shift (int): The number of positions to shift the list downward.
 
     Returns:
-        np.ndarray: Interpolated joint angle data (excluding the return path).
-        int: Total number of interpolated points for subsequent use.
+        list of list of int/float: The rotated 2D list.
     """
-    interpolated_path = []
+    array = np.array(lst)
+    shift = shift % len(array)  # Handle cases where shift is greater than the list length
+    rotated_array = np.roll(array, shift, axis=0)
+    return rotated_array.tolist()
 
-    for i in range(len(joint_angles) - 1):
-        start_angles = np.array(joint_angles[i])
-        end_angles = np.array(joint_angles[i + 1])
-        interpolated_segment = [
-            start_angles + (end_angles - start_angles) * t / (points_per_segment + 1)
-            for t in range(points_per_segment + 1)
-        ]
-        interpolated_path.extend(interpolated_segment)
+def store_list_as_csv(lst: list, file_path: str) -> str:
+    """
+    Store a list as a CSV file.
 
-    interpolated_path.append(joint_angles[-1])  # Append the final point
-    return np.array(interpolated_path), len(interpolated_path)
+    Args:
+        lst (list): The input list to store.
+        file_path (str): The file path to store the list as a CSV file.
+    """
+    # Create a DataFrame from the list
+    data_frame = pd.DataFrame(lst)
 
-# backwards_position = np.array([[ -0.0, 0.0, -0.3],
-#                                [-0.07, 0.0, -0.3],
-#                                [-0.10, 0.0, -0.3],
-#                                [-0.15, 0.0, -0.3]])
+    # Save the DataFrame as a CSV file
+    data_frame.to_csv(file_path, index=False)
 
-# forward_position = np.array([[-0.15, 0.0, -0.30],
-#                              [-0.15, 0.0, -0.20],
-#                              [-0.0, 0.0, -0.20],
-#                              [-0.00, 0.0, -0.30]])
+    return file_path
+
+def load_list_from_csv(file_path: str) -> list:
+    """
+    Load a list from a CSV file.
+
+    Args:
+        file_path (str): The file path to load the list from.
+
+    Returns:
+        list: The loaded list from the CSV file.
+    """
+    # Load the CSV file as a DataFrame
+    data_frame = pd.read_csv(file_path)
+
+    # Convert the DataFrame to a list
+    lst = data_frame.values.tolist()
+
+    return lst
+
+def calculate_ik(positions:np.array, leg:Leg,
+                          base_position:list = None) -> list:
+    """
+    calculate ik to motor angle
+    """
+    if base_position is None:
+        base_position = [0, 0, 0]
+    angles_list = []
+    for pos in positions:
+        angles = [0] * 3
+        joint_angle = leg.calculate_ik(pos, base_position)
+
+        angles[0] = round(float(joint_angle["joint_1_angle"] - 90), 2)
+        angles[1] = round(float(180 - (90 - joint_angle["joint_2_angle"])), 2)
+        angles[2] =  round(float(joint_angle["joint_3_angle"]), 2)
+
+        angles_list.append(angles)
+    return angles_list
+
+def draw_leg_trajectory(leg_postion:np.array)->None:
+    """
+    Draw the leg trajectory
+    """
+    fig = plt.figure()
+    gait_ax = fig.add_subplot(111, projection='3d')
+
+    gait_ax.plot(leg_postion[:, 0], leg_postion[:, 1], leg_postion[:, 2], marker='o')
+
+    gait_ax.set_xlabel('X')
+    gait_ax.set_ylabel('Y')
+    gait_ax.set_zlabel('Z')
+
+    plt.show()
 
 
-backwards_position = np.array([[-0.02, 0.0, -0.30],
-                               [-0.04, 0.0, -0.30], #
-                               [-0.08, 0.0, -0.30],
-                               [-0.10, 0.0, -0.30], #
-                               [-0.12, 0.0, -0.30],
-                               [-0.14, 0.0, -0.30], #
-                               [-0.15, 0.0, -0.30]])
+# Define the leg positions for lifting and standing
 
-forward_position = np.array([[-0.15, 0.0, -0.30],
-                             [-0.15, 0.0, -0.25], #
-                             [-0.15, 0.0, -0.20],
-                             [-0.07, 0.0, -0.20], #
-                             [-0.00, 0.0, -0.20],
-                             [-0.00, 0.0, -0.25], #
-                             [-0.00, 0.0, -0.30]])
+# leg_lift = np.array([
+#                     [0.0000, 0.1501, -0.3000],
+#                     # [0.0000, 0.0355, -0.2875],
+#                     [0.0000, 0.1501, -0.2750],
+#                     [0.0000, 0.1501, -0.2500],
+#                     [0.0250, 0.1501, -0.2375],
+#                     [0.0375, 0.0355, -0.2250],
+#                     [0.0500, 0.0355, -0.2125],
+#                     [0.0625, 0.0355, -0.20],
+#                     [0.0750, 0.0355, -0.20],
+#                     [0.0875, 0.0355, -0.20],
+#                     [0.1000, 0.0355, -0.20],
+#                     [0.1125, 0.0355, -0.20],
+#                     [0.1250, 0.0355, -0.20],
+#                     [0.1375, 0.0355, -0.20],
+#                     [0.1500, 0.0355, -0.20],
+#                     [0.1750, 0.0355, -0.2150],
+#                     [0.2000, 0.0355, -0.2250],
+#                     [0.2250, 0.0355, -0.2500],
+#                     [0.2500, 0.0355, -0.2750],
+#                     [0.2500, 0.0355, -0.300],
+#                     [0.2500, 0.0355, -0.300],
+# ])
 
-backward_motor_angles = calculate_ik(backwards_position)
-forward_motor_angles = calculate_ik(forward_position)
+leg_lift = np.array([
+                    [0.0000, 0.0701, -0.25], #
+                    [0.0000, 0.0701, -0.24],
+                    [0.0000, 0.0701, -0.23],
+                    [0.0000, 0.0701, -0.22],
+                    [0.0000, 0.0701, -0.21],
+                    [0.0000, 0.0701, -0.20], #
+                    [0.0000, 0.0701, -0.19],
+                    [0.0000, 0.0701, -0.18],
+                    [0.0000, 0.0701, -0.17],
+                    [0.0000, 0.0701, -0.16],
+                    [0.0000, 0.0701, -0.15], #
+                    [0.01, 0.0701, -0.15],
+                    [0.02, 0.0701, -0.15],
+                    [0.03, 0.0701, -0.15],
+                    [0.04, 0.0701, -0.15],
+                    [0.05, 0.0701, -0.15], #
+                    [0.06, 0.0701, -0.15],
+                    [0.07, 0.0701, -0.15],
+                    [0.08, 0.0701, -0.15],
+                    [0.09, 0.0701, -0.15],
+                    [0.1, 0.0701, -0.15], #
+                    [0.1, 0.0701, -0.17],
+                    [0.1, 0.0701, -0.19],
+                    [0.1, 0.0701, -0.21],
+                    [0.1, 0.0701, -0.23],
+                    [0.1, 0.0701, -0.25], #
+                    ])
 
-backwards_interpolated, _ = linear_interpolate_path(backward_motor_angles, 2)
-print("backwards motor angels", backward_motor_angles)
-print("backwards interpolated", backwards_interpolated)
+leg_stand = np.array([[0.0, 0.0701, -0.25]] * len(leg_lift))
+# 1: x axis, 2: y axis, 3: z axis
 
-forward_interpolated, _ = linear_interpolate_path(forward_motor_angles, 2)
-print("forward motor angels", forward_motor_angles)
-print("forward interpolated", forward_interpolated)
+leg_LF = Leg("left Forward", [0.0701, 0.1501, 0.1451], [0, 0, 0])
+# 1: first leg, 2: second leg 3: third leg
 
-complete_motor_angles = [
-    [0, float(forward[0]), float(forward[1]), 0, float(ret[0]), float(ret[1])]
-    for forward, ret in zip(backwards_interpolated, forward_interpolated)
+leg_stand_test = make_linear_interpolation([0.15, 0.0355, -0.3],
+                                           [0.0, 0.0355, -0.3],len(leg_lift))
+# leg_stand_test = make_linear_interpolation([0.25, 0.0355, -0.3],
+#                                            [0.0, 0.0355, -0.3],len(leg_lift))
+
+draw_leg_trajectory(leg_lift)
+# draw_leg_trajectory(leg_stand_test)
+# exit()
+
+# Calculate the motor angles for lifting and standing
+
+motor_lift_angles = calculate_ik(leg_lift, leg_LF)
+leg_stand_test_angles = calculate_ik(leg_stand_test, leg_LF)
+motor_stand_angles = calculate_ik(leg_stand, leg_LF)
+
+
+# spot step 1
+motor_angles = [
+    [motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2],
+     motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2]]
+     for motor_1, motor_2 in zip(motor_lift_angles, motor_stand_angles)
 ]
-complete_motor_angles_reverse = [
-    [0, float(forward[0]), float(forward[1]), 0, float(ret[0]), float(ret[1])]
-    for forward, ret in zip(forward_interpolated, backwards_interpolated)
-]
-print("complete motor angles + complete_motor_angles_reverse",
-      complete_motor_angles + complete_motor_angles_reverse)
-print("len of complete motor angles", len(complete_motor_angles + complete_motor_angles_reverse))
 
-print("complete motor angles + complete_motor_angles_reverse",
-      complete_motor_angles_reverse + complete_motor_angles)
-print("len of complete motor angles", len(complete_motor_angles + complete_motor_angles_reverse))
-# print("complete motor angles", complete_motor_angles)
-# print("len of complete motor angles", len(complete_motor_angles))
+print("spot step INIT",motor_angles)
+
+# Store the motor angles as a CSV file
+# motor_angles_file_path = store_list_as_csv(motor_angles,
+#                      "AI_pkg/Spot/action/motor_angles_step1.csv")
+
+# spot step 2
+motor_angles = [
+    [motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2],
+     motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2]]
+     for motor_1, motor_2 in zip(leg_stand_test_angles, motor_lift_angles)
+]
+# print("spot step LEFT",motor_angles)
+
+# Store the motor angles as a CSV file
+# motor_angles_file_path = store_list_as_csv(motor_angles,
+#                       "AI_pkg/Spot/action/motor_angles_step2.csv")
+
+# spot step 3
+motor_angles = [
+    [motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2],
+     motor_1[0], motor_1[1], motor_1[2], motor_2[0], motor_2[1], motor_2[2]]
+     for motor_1, motor_2 in zip(motor_lift_angles, leg_stand_test_angles)
+]
+# print("spot step RIGHT",motor_angles)
+
+# Store the motor angles as a CSV file
+# motor_angles_file_path = store_list_as_csv(motor_angles,
+#                       "AI_pkg/Spot/action/motor_angles_step3.csv")

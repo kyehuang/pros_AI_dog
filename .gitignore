@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+__init__.py
 
 # C extensions
 *.so
@@ -166,3 +167,5 @@ AI_pkg/Model/*
 
 # result
 AI_pkg/result/*
+AI_pkg/data/*
+AI_pkg/Spot/action/*

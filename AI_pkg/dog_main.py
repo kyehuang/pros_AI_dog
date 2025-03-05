@@ -1,26 +1,11 @@
 """
 This script is the main script for controlling the dog by pressing the keyboard or using PPO.
 """
-import threading
-import rclpy
-from ros_receive_and_processing.AI_dog_node import AI_dog_node
 from keyboard_control.keyboard_dog import KeyboardDog
 from utils.gym_manger import GymManager
 
-
-def init_ai_dog_node():
-    """
-    Initialize AI_dog_node
-
-    Returns:
-        AI_dog_node: AI_dog_node instance
-        thread: threading.Thread instance
-    """
-    rclpy.init()
-    node = AI_dog_node()
-    thread = threading.Thread(target = rclpy.spin, args = (node,))
-    thread.start()
-    return node, thread
+from gym_env.dual_leg_front_raise.ppo_config_front_raise import PPOconfigFrontRaise
+from gym_env.dual_leg_front.ppo_config_front import PPOconfigFront
 
 def print_usage():
     """
@@ -28,7 +13,8 @@ def print_usage():
     """
     print("modes:")
     print(" 1 -- control the dog by pressing the keyboard")
-    print(" 2 -- control the dog by PPO")
+    print(" 2 -- control the dog by PPO (DualLegLiftDogEnv)")
+    print(" 3 -- control the dog by PPO (DualLegFrontRaiseDogEnv)")
 
 def main(mode):
     """
@@ -44,13 +30,21 @@ def main(mode):
     elif mode == "2":
         env = GymManager().gym_env_register(node)
         GymManager().train_model_ppo(env)
+    elif mode == "3":
+        env = GymManager().gym_env_register(node,
+                            env_name = "DualLegFrontRaiseDogEnv",
+                            env_path = "gym_env.dual_leg_front_raise.rl_training_main")
+        GymManager().train_model_ppo(env, ppo_config=PPOconfigFrontRaise())
+    elif mode == "4":
+        env = GymManager().gym_env_register(node,
+                            env_name = "DualLegFrontDogEnv",
+                            env_path = "gym_env.dual_leg_front.rl_training_main")
+        GymManager().train_model_ppo(env, ppo_config=PPOconfigFront())
     else:
         print("Please type the correct numbers.")
 
     # Shutdown AI_dog_node
-    node.destroy_node()
-    rclpy.shutdown()
-    ros_thread.join()
+    GymManager().shutdown_ai_dog_node(node, ros_thread)
     print("[INFO] AI_dog_node has stopped.")
 
 
