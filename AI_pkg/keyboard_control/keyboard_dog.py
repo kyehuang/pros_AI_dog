@@ -15,7 +15,9 @@ _STEP_MAPPING = {
     '2': KeyboardAction.FORWARD_STEP_2,
     '3': KeyboardAction.FORWARD_STEP_3,
     '4': KeyboardAction.FORWARD_STEP_4,
-    '5': KeyboardAction.FORWARD_STEP_5
+    '5': KeyboardAction.FORWARD_STEP_5,
+    'u': KeyboardAction.FORWARD_STEP_u,
+    'j': KeyboardAction.FORWARD_STEP_j
 }
 
 @dataclasses.dataclass
@@ -45,6 +47,8 @@ class KeyboardDog:
             ord('3'): lambda: self.__handle_key_generic('3'),
             ord('4'): lambda: self.__handle_key_generic('4'),
             ord('5'): lambda: self.__handle_key_generic('5'),
+            ord('u'): lambda: self.__handle_key_generic('u'),
+            ord('j'): lambda: self.__handle_key_generic('j')
         }
 
         # update flag

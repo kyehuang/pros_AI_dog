@@ -199,7 +199,12 @@ def main():
                         [0.0, 0.0701, -0.25],
                         [-0.1, 0.0701, -0.25], 10)
     leg_stand = np.array([[0.0, 0.0701, -0.25]] * len(leg_front_lift_init))
-
+    leg_front_stand_up = make_linear_interpolation(
+                        [0.0, 0.0701, -0.20],
+                        [0.0, 0.0701, -0.15], 25)
+    leg_front_stand_down = make_linear_interpolation(
+                        [0.0, 0.0701, -0.15],
+                        [0.0, 0.0701, -0.20], 25)
     spotLeg = SpotLeg([0.0701, 0.1501, 0.1451], [0, 0, 0])
 
     # draw leg motion
@@ -222,6 +227,14 @@ def main():
         leg_front_stand_B, spotLeg
     )
     
+    motor_angle_stand_up = calculate_ik(
+        leg_front_stand_up, spotLeg
+    )
+
+    motor_angle_stand_down = calculate_ik(
+        leg_front_stand_down, spotLeg
+    )
+
     motor_front_lift_init = create_motor_angles(
         motor_angle_front_lift_init,
         motor_angle_stand
@@ -247,10 +260,23 @@ def main():
         motor_angle_stand
     )
 
+    motor_stand_up = create_motor_angles(
+        motor_angle_stand_up,
+        motor_angle_stand_up
+    )
+
+    motor_stand_down = create_motor_angles(
+        motor_angle_stand_down,
+        motor_angle_stand_down
+    )
+    
     print(motor_front_lift_init)
     print(motor_front_stand_A)
     print(motor_front_lift_step_A)
     print(motor_front_stand_B)
     print(motor_front_lift_step_B)
+    print(motor_stand_up)
+    print(motor_stand_down)
+
 if __name__ == "__main__":
     main()
