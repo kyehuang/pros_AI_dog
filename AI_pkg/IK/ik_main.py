@@ -3,6 +3,8 @@ This module contains functions for calculating the inverse
 kinematics of a leg
 """
 import numpy as np
+import pickle
+import datetime
 from SpotLeg import SpotLeg
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -274,9 +276,30 @@ def main():
     # print(motor_front_stand_A)
     # print(motor_front_lift_step_A)
     # print(motor_front_stand_B)
-    print(motor_front_lift_step_B)
+    # print(motor_front_lift_step_B)
     # print(motor_stand_up)
     # print(motor_stand_down)
+
+    data_dict = {
+        "motor_front_lift_init": motor_front_lift_init,
+        "motor_front_stand_A": motor_front_stand_A,
+        "motor_front_lift_step_A": motor_front_lift_step_A,
+        "motor_front_stand_B": motor_front_stand_B,
+        "motor_front_lift_step_B": motor_front_lift_step_B,
+        "motor_stand_up": motor_stand_up,
+        "motor_stand_down": motor_stand_down
+    }
+
+    # Capture current date as a string
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # Build a filename with the date embedded
+    filename = f"motor_data_{current_date}.pkl"
+    path = "keyboard_control/keyboard_actions/"
+    with open(path+filename, "wb") as f:
+        pickle.dump(data_dict, f)
+    
+    print(f"Data saved to {filename}")
 
 if __name__ == "__main__":
     main()
