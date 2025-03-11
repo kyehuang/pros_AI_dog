@@ -215,23 +215,26 @@ def main():
         [-0.04, 0.0701, -0.15],
         [-0.02, 0.0701, -0.15],
         [0.00, 0.0701, -0.15],
+        [0.01, 0.0701, -0.15],
         [0.02, 0.0701, -0.15],
+        [0.03, 0.0701, -0.15],
         [0.04, 0.0701, -0.15],
-        [0.06, 0.0701, -0.15],
-        [0.08, 0.0701, -0.15],
-        [0.1, 0.0701, -0.15],
-        [0.1, 0.0701, -0.16],
-        [0.1, 0.0701, -0.17],
-        [0.1, 0.0701, -0.18],
-        [0.1, 0.0701, -0.19],
-        [0.1, 0.0701, -0.20],
+        [0.05, 0.0701, -0.15],
+        [0.05, 0.0701, -0.16],
+        [0.05, 0.0701, -0.17],
+        [0.05, 0.0701, -0.18],
+        [0.05, 0.0701, -0.19],
+        [0.05, 0.0701, -0.20],
     ])
     leg_front_stand_A = make_linear_interpolation(
-                        [0.1, 0.0701, -0.20],
-                        [0.0, 0.0701, -0.20], 10)
+                        [-0.05, 0.0701, -0.20],
+                        [-0.10, 0.0701, -0.20], len(leg_front_lift_step))
     leg_front_stand_B = make_linear_interpolation(
-                        [0.0, 0.0701, -0.20],
-                        [-0.1, 0.0701, -0.20], 10)
+                        [0.00, 0.0701, -0.20],
+                        [-0.05, 0.0701, -0.20], len(leg_front_lift_step))
+    leg_front_stand_C = make_linear_interpolation(
+                        [0.05, 0.0701, -0.20],
+                        [0.00, 0.0701, -0.20], len(leg_front_lift_step))
     leg_stand = np.array([[0.0, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_stand_front = np.array([[0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_stand_back = np.array([[-0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
@@ -268,6 +271,9 @@ def main():
     motor_angle_front_stand_B = calculate_ik(
         leg_front_stand_B, spotLeg
     )
+    motor_angle_front_stand_C = calculate_ik(
+        leg_front_stand_C, spotLeg
+    )
     
     motor_angle_stand_up = calculate_ik(
         leg_front_stand_up, spotLeg
@@ -290,8 +296,8 @@ def main():
     )
     
     motor_front_stand_A = create_motor_angles(
-        motor_angle_front_stand_A,
-        motor_angle_front_stand_B,
+        motor_angle_front_lift_step,
+        motor_angle_front_stand_C,
         motor_angle_front_stand_A,
         motor_angle_front_stand_B
     )
@@ -299,32 +305,22 @@ def main():
     motor_front_stand_B = create_motor_angles(
         motor_angle_front_stand_B,
         motor_angle_front_stand_A,
-        motor_angle_front_stand_B,
-        motor_angle_front_stand_A
-    )
-
-    motor_front_lift_step_A = create_motor_angles(
-        motor_angle_stand,
-        motor_angle_front_lift_step,
-        motor_angle_stand,
-        motor_angle_stand_back
-    ) + create_motor_angles(
-        motor_angle_stand,
-        motor_angle_stand_front,
-        motor_angle_stand,
+        motor_angle_front_stand_C,
         motor_angle_front_lift_step
     )
 
+    motor_front_lift_step_A = create_motor_angles(
+        motor_angle_front_stand_C,
+        motor_angle_front_stand_B,
+        motor_angle_front_lift_step,
+        motor_angle_front_stand_A
+    )
+
     motor_front_lift_step_B = create_motor_angles(
+        motor_angle_front_stand_A,
         motor_angle_front_lift_step,
-        motor_angle_stand,
-        motor_angle_stand_back,
-        motor_angle_stand
-    ) + create_motor_angles(
-        motor_angle_stand_front,
-        motor_angle_stand,
-        motor_angle_front_lift_step,
-        motor_angle_stand
+        motor_angle_front_stand_B,
+        motor_angle_front_stand_C
     )
 
     motor_stand_up = create_motor_angles(
