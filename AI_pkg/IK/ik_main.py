@@ -95,19 +95,52 @@ def calculate_ik(
 
     return ik_angles
 
-def create_motor_angles(motor_A, motor_B):
+# def create_motor_angles(motor_A, motor_B):
+#     """
+#     Create a list of motor angles by combining each pair of angles from
+#     `motor_A` and `motor_B` in a specific pattern.
+
+#     Each output element is a 12-element list of angles:
+#     [init_0, init_1, init_2, stand_0, stand_1, stand_2,
+#      init_0, init_1, init_2, stand_0, stand_1, stand_2]
+    
+#     Args:
+#         motor_A (list of list of float): 
+#             A list where each element is [init_0, init_1, init_2].
+#         motor_B (list of list of float): 
+#             A list where each element is [stand_0, stand_1, stand_2].
+    
+#     Returns:
+#         list: A list of 12-element lists, each corresponding to the combined angles.
+#     """
+#     combined_angles = [
+#         [
+#             motor_1[0], motor_1[1], motor_1[2],
+#             motor_2[0], motor_2[1], motor_2[2],
+#             motor_1[0], motor_1[1], motor_1[2],
+#             motor_2[0], motor_2[1], motor_2[2],
+#         ]
+#         for motor_1, motor_2 in zip(motor_A, motor_B)
+#     ]
+#     return combined_angles
+
+def create_motor_angles(motor_LF, motor_RF, motor_RB, motor_LB):
     """
     Create a list of motor angles by combining each pair of angles from
-    `motor_A` and `motor_B` in a specific pattern.
+    `motor_LF` and `motor_RF` in a specific pattern.
 
     Each output element is a 12-element list of angles:
     [init_0, init_1, init_2, stand_0, stand_1, stand_2,
      init_0, init_1, init_2, stand_0, stand_1, stand_2]
     
     Args:
-        motor_A (list of list of float): 
+        motor_LF (list of list of float): 
             A list where each element is [init_0, init_1, init_2].
-        motor_B (list of list of float): 
+        motor_RF (list of list of float): 
+            A list where each element is [stand_0, stand_1, stand_2].
+        motor_RB (list of list of float): 
+            A list where each element is [init_0, init_1, init_2].
+        motor_LB (list of list of float): 
             A list where each element is [stand_0, stand_1, stand_2].
     
     Returns:
@@ -117,13 +150,12 @@ def create_motor_angles(motor_A, motor_B):
         [
             motor_1[0], motor_1[1], motor_1[2],
             motor_2[0], motor_2[1], motor_2[2],
-            motor_1[0], motor_1[1], motor_1[2],
-            motor_2[0], motor_2[1], motor_2[2],
+            motor_3[0], motor_3[1], motor_3[2],
+            motor_4[0], motor_4[1], motor_4[2],
         ]
-        for motor_1, motor_2 in zip(motor_A, motor_B)
+        for motor_1, motor_2, motor_3, motor_4 in zip(motor_LF, motor_RF, motor_RB, motor_LB)
     ]
     return combined_angles
-
 
 # Example usage:
 # motor_A = [[10, 20, 30], [15, 25, 35]]
@@ -201,6 +233,8 @@ def main():
                         [0.0, 0.0701, -0.20],
                         [-0.1, 0.0701, -0.20], 10)
     leg_stand = np.array([[0.0, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_front = np.array([[0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_back = np.array([[-0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_front_stand_up = make_linear_interpolation(
                         [0.0, 0.0701, -0.20],
                         [0.0, 0.0701, -0.15], 25)
@@ -210,7 +244,7 @@ def main():
     spotLeg = SpotLeg([0.0701, 0.1501, 0.1451], [0, 0, 0])
 
     # draw leg motion
-    draw_leg_trajectory(leg_front_lift_init)
+    # draw_leg_trajectory(leg_front_lift_init)
 
     # calculate ik 
     motor_angle_front_lift_init = calculate_ik(
@@ -218,6 +252,12 @@ def main():
     )
     motor_angle_stand = calculate_ik(
         leg_stand, spotLeg
+    )
+    motor_angle_stand_front = calculate_ik(
+        leg_stand_front, spotLeg
+    )
+    motor_angle_stand_back = calculate_ik(
+        leg_stand_back, spotLeg
     )
     motor_angle_front_lift_step = calculate_ik(
         leg_front_lift_step, spotLeg
@@ -239,40 +279,69 @@ def main():
 
     motor_front_lift_init = create_motor_angles(
         motor_angle_front_lift_init,
+        motor_angle_stand,
+        motor_angle_stand,
+        motor_angle_stand
+    ) + create_motor_angles(
+        motor_angle_stand_front,
+        motor_angle_stand,
+        motor_angle_front_lift_init,
         motor_angle_stand
     )
     
     motor_front_stand_A = create_motor_angles(
+        motor_angle_front_stand_A,
+        motor_angle_front_stand_B,
         motor_angle_front_stand_A,
         motor_angle_front_stand_B
     )
 
     motor_front_stand_B = create_motor_angles(
         motor_angle_front_stand_B,
+        motor_angle_front_stand_A,
+        motor_angle_front_stand_B,
         motor_angle_front_stand_A
     )
 
     motor_front_lift_step_A = create_motor_angles(
+        motor_angle_stand,
+        motor_angle_front_lift_step,
+        motor_angle_stand,
+        motor_angle_stand_back
+    ) + create_motor_angles(
+        motor_angle_stand,
+        motor_angle_stand_front,
         motor_angle_stand,
         motor_angle_front_lift_step
     )
 
     motor_front_lift_step_B = create_motor_angles(
         motor_angle_front_lift_step,
+        motor_angle_stand,
+        motor_angle_stand_back,
+        motor_angle_stand
+    ) + create_motor_angles(
+        motor_angle_stand_front,
+        motor_angle_stand,
+        motor_angle_front_lift_step,
         motor_angle_stand
     )
 
     motor_stand_up = create_motor_angles(
+        motor_angle_stand_up,
+        motor_angle_stand_up,
         motor_angle_stand_up,
         motor_angle_stand_up
     )
 
     motor_stand_down = create_motor_angles(
         motor_angle_stand_down,
+        motor_angle_stand_down,
+        motor_angle_stand_down,
         motor_angle_stand_down
     )
     
-    # print(motor_front_lift_init)
+    print(motor_front_lift_init)
     # print(motor_front_stand_A)
     # print(motor_front_lift_step_A)
     # print(motor_front_stand_B)
