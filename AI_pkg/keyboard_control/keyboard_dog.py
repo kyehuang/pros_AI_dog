@@ -70,6 +70,7 @@ class KeyboardDog:
                     if chr(input_char) in KeyboardConfig.KEY_ACTION_MAPPING:
                         joint, value = KeyboardConfig.KEY_ACTION_MAPPING[chr(input_char)]
                         self.__joint_pos[joint] += value /5
+                        self.__joint_pos[joint + 6] += value /5
 
                     elif input_char == ord('z'):
                         self.__joint_pos = copy.copy(KeyboardConfig.JOINT_INIT_POS)
@@ -105,26 +106,7 @@ class KeyboardDog:
         Returns:
             list: List of motor position
         """
-        motor_pos = [0.0] * 12
-        # LF, RB : first joint
-        motor_pos[0] = self.__joint_pos[0]
-        motor_pos[6] = self.__joint_pos[0]
-        # LF, RB : second joint
-        motor_pos[1] = self.__joint_pos[1]
-        motor_pos[7] = self.__joint_pos[1]
-        # LF, RB : third joint
-        motor_pos[2] = self.__joint_pos[2]
-        motor_pos[8] = self.__joint_pos[2]
-
-        # RF, LB : first joint
-        motor_pos[3] = self.__joint_pos[3]
-        motor_pos[9] = self.__joint_pos[3]
-        # RF, LB : second joint
-        motor_pos[4] = self.__joint_pos[4]
-        motor_pos[10] = self.__joint_pos[4]
-        # RF, LB : third joint
-        motor_pos[5] = self.__joint_pos[5]
-        motor_pos[11] = self.__joint_pos[5]
+        motor_pos = copy.copy(self.__joint_pos)
 
         for i in range(12):
             motor_pos[i] = float(motor_pos[i])
@@ -157,11 +139,11 @@ class KeyboardDog:
     def __perform_forward_step(self, step_sequence):
         """Helper method to iterate over a step sequence and publish actions."""
         for state in step_sequence:
-            self.__joint_pos = state
             # self.__publish_spot_actions_symmetry()
             self.__node.publish_spot_actions(state)
             time.sleep(self.__time_interval)
             self.__stdscr.refresh()
+        self.__joint_pos = state
 
     def run(self):
         """
