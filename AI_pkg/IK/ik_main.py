@@ -297,30 +297,30 @@ def main():
     
     motor_front_stand_A = create_motor_angles(
         motor_angle_front_lift_step,
+        motor_angle_front_stand_B,
         motor_angle_front_stand_C,
-        motor_angle_front_stand_A,
-        motor_angle_front_stand_B
+        motor_angle_front_stand_A
     )
 
     motor_front_stand_B = create_motor_angles(
         motor_angle_front_stand_B,
+        motor_angle_front_lift_step,
         motor_angle_front_stand_A,
-        motor_angle_front_stand_C,
-        motor_angle_front_lift_step
+        motor_angle_front_stand_C
     )
 
     motor_front_lift_step_A = create_motor_angles(
         motor_angle_front_stand_C,
+        motor_angle_front_stand_A,
         motor_angle_front_stand_B,
-        motor_angle_front_lift_step,
-        motor_angle_front_stand_A
+        motor_angle_front_lift_step
     )
 
     motor_front_lift_step_B = create_motor_angles(
         motor_angle_front_stand_A,
+        motor_angle_front_stand_C,
         motor_angle_front_lift_step,
-        motor_angle_front_stand_B,
-        motor_angle_front_stand_C
+        motor_angle_front_stand_B
     )
 
     motor_stand_up = create_motor_angles(
@@ -338,12 +338,12 @@ def main():
     )
     
     print(motor_front_lift_init)
-    # print(motor_front_stand_A)
-    # print(motor_front_lift_step_A)
-    # print(motor_front_stand_B)
-    # print(motor_front_lift_step_B)
-    # print(motor_stand_up)
-    # print(motor_stand_down)
+    print(motor_front_stand_A)
+    print(motor_front_lift_step_A)
+    print(motor_front_stand_B)
+    print(motor_front_lift_step_B)
+    print(motor_stand_up)
+    print(motor_stand_down)
 
     data_dict = {
         "motor_front_lift_init": motor_front_lift_init,
