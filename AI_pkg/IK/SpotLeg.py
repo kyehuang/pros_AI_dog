@@ -50,7 +50,7 @@ class SpotLeg():
         # Joint 3 angle
         g = np.sqrt(x**2 + d**2)
         numerator = g**2 - self.joint_lengths[1]**2 - self.joint_lengths[2]**2
-        denominator = 2 * self.joint_lengths[1] * self.joint_lengths[2]
+        denominator = -2 * self.joint_lengths[1] * self.joint_lengths[2]
         joint_3_angle = np.arccos(numerator/denominator)
 
        # Joint 2 angle
@@ -72,5 +72,5 @@ if __name__ == "__main__":
     target = [0, 1, 1]
     base = [0, 0, 0]
 
-    result = leg.calculate_ik(target_position=target, base_position=base)
+    result = leg.calculate_ik(target_position=target, base_postion=base)
     print("Calculated IK angles:", result)

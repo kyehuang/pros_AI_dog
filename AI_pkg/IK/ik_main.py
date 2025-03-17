@@ -89,7 +89,7 @@ def calculate_ik(
         # Extract and transform the joint angles as needed
         joint_1 = round(float(joint_angle["joint_1_angle"] - 90), 2)
         joint_2 = round(float(180 - (90 - joint_angle["joint_2_angle"])), 2)
-        joint_3 = round(float(joint_angle["joint_3_angle"]), 2)
+        joint_3 = round(float(180 - joint_angle["joint_3_angle"]), 2)
 
         ik_angles.append([joint_1, joint_2, joint_3])
 
