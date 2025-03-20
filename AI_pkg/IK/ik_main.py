@@ -171,8 +171,8 @@ def create_motor_angles(motor_LF, motor_RF, motor_RB, motor_LB):
 def main():
     # Define leg position
     leg_front_lift_init = np.array([
+        [0.0000, 0.0701, -0.225],
         [0.0000, 0.0701, -0.200],
-        [0.0000, 0.0701, -0.195],
         [0.0000, 0.0701, -0.190],
         [0.0000, 0.0701, -0.185],
         [0.0000, 0.0701, -0.180],
@@ -226,6 +226,12 @@ def main():
         [0.05, 0.0701, -0.19],
         [0.05, 0.0701, -0.20],
     ])
+    leg_down_to_stand_A = make_linear_interpolation(
+                        [-0.05, 0.0701, -0.175],
+                        [-0.10, 0.0701, -0.20], 25)
+    leg_down_to_stand_C = make_linear_interpolation(
+                        [0.05, 0.0701, -0.175],
+                        [0.00, 0.0701, -0.20], 25)
     leg_front_stand_A = make_linear_interpolation(
                         [-0.05, 0.0701, -0.20],
                         [-0.10, 0.0701, -0.20], len(leg_front_lift_step))
@@ -236,8 +242,20 @@ def main():
                         [0.05, 0.0701, -0.20],
                         [0.00, 0.0701, -0.20], len(leg_front_lift_step))
     leg_stand = np.array([[0.0, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_A = np.array([[-0.05, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_B = np.array([[0.00, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_C = np.array([[0.05, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_stand_front = np.array([[0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_stand_back = np.array([[-0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_front_up = make_linear_interpolation(
+                        [-0.1, 0.0701, -0.20],
+                        [-0.1, 0.0701, -0.225], 25)
+    leg_stand_front_down_A = make_linear_interpolation(
+                        [-0.05, 0.0701, -0.20],
+                        [-0.05, 0.0701, -0.175], 25)
+    leg_stand_front_down_C = make_linear_interpolation(
+                        [0.05, 0.0701, -0.20],
+                        [0.05, 0.0701, -0.175], 25)
     leg_front_stand_up = make_linear_interpolation(
                         [0.0, 0.0701, -0.20],
                         [0.0, 0.0701, -0.15], 25)
@@ -256,14 +274,38 @@ def main():
     motor_angle_stand = calculate_ik(
         leg_stand, spotLeg
     )
+    motor_angle_stand_A = calculate_ik(
+        leg_stand_A, spotLeg
+    )
+    motor_angle_stand_B = calculate_ik(
+        leg_stand_B, spotLeg
+    )
+    motor_angle_stand_C = calculate_ik(
+        leg_stand_C, spotLeg
+    )
     motor_angle_stand_front = calculate_ik(
         leg_stand_front, spotLeg
     )
     motor_angle_stand_back = calculate_ik(
         leg_stand_back, spotLeg
     )
+    motor_angle_front_up = calculate_ik(
+        leg_stand_front_up, spotLeg
+    )
+    motor_angle_front_down_A = calculate_ik(
+        leg_stand_front_down_A, spotLeg
+    )
+    motor_angle_front_down_C = calculate_ik(
+        leg_stand_front_down_C, spotLeg
+    )
     motor_angle_front_lift_step = calculate_ik(
         leg_front_lift_step, spotLeg
+    )
+    motor_angle_down_to_stand_A = calculate_ik(
+        leg_down_to_stand_A, spotLeg
+    )
+    motor_angle_down_to_stand_C = calculate_ik(
+        leg_down_to_stand_C, spotLeg
     )
     motor_angle_front_stand_A = calculate_ik(
         leg_front_stand_A, spotLeg
@@ -296,29 +338,49 @@ def main():
     )
     
     FORWARD_STEP_2 = create_motor_angles(
+        motor_angle_front_up,
+        motor_angle_stand_B,
+        motor_angle_front_down_A,
+        motor_angle_stand_C
+    ) + create_motor_angles(
         motor_angle_front_lift_step,
         motor_angle_front_stand_B,
-        motor_angle_front_stand_A,
+        motor_angle_down_to_stand_A,
         motor_angle_front_stand_C
     )
 
     FORWARD_STEP_3 = create_motor_angles(
-        motor_angle_front_stand_C,
+        motor_angle_front_down_C,
+        motor_angle_stand_A,
+        motor_angle_front_up,
+        motor_angle_stand_B
+    ) + create_motor_angles(
+        motor_angle_down_to_stand_C,
         motor_angle_front_stand_A,
         motor_angle_front_lift_step,
         motor_angle_front_stand_B
     )
 
     FORWARD_STEP_4 = create_motor_angles(
+        motor_angle_stand_B,
+        motor_angle_front_up,
+        motor_angle_stand_C,
+        motor_angle_front_down_A
+    ) + create_motor_angles(
         motor_angle_front_stand_B,
         motor_angle_front_lift_step,
         motor_angle_front_stand_C,
-        motor_angle_front_stand_A
+        motor_angle_down_to_stand_A
     )
 
     FORWARD_STEP_5 = create_motor_angles(
+        motor_angle_stand_A,
+        motor_angle_front_down_C,
+        motor_angle_stand_B,
+        motor_angle_front_up
+    ) + create_motor_angles(
         motor_angle_front_stand_A,
-        motor_angle_front_stand_C,
+        motor_angle_down_to_stand_C,
         motor_angle_front_stand_B,
         motor_angle_front_lift_step
     )
