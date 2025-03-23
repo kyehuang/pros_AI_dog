@@ -16,6 +16,7 @@ _STEP_MAPPING = {
     '3': KeyboardAction.FORWARD_STEP_3,
     '4': KeyboardAction.FORWARD_STEP_4,
     '5': KeyboardAction.FORWARD_STEP_5,
+    '6': KeyboardAction.FORWARD_STEP_6,
     'u': KeyboardAction.FORWARD_STEP_u,
     'j': KeyboardAction.FORWARD_STEP_j
 }
@@ -40,13 +41,14 @@ class KeyboardDog:
         # 4 = RF, LB : second joint
         # 5 = RF, LB : third joint
         self.__time_interval = 0.02 # time interval
-
+    
         self.key_mapping = {
             ord('1'): lambda: self.__handle_key_generic('1'),
             ord('2'): lambda: self.__handle_key_generic('2'),
             ord('3'): lambda: self.__handle_key_generic('3'),
             ord('4'): lambda: self.__handle_key_generic('4'),
             ord('5'): lambda: self.__handle_key_generic('5'),
+            ord('6'): lambda: self.__handle_key_generic('6'),
             ord('u'): lambda: self.__handle_key_generic('u'),
             ord('j'): lambda: self.__handle_key_generic('j')
         }

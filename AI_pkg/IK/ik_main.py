@@ -95,34 +95,6 @@ def calculate_ik(
 
     return ik_angles
 
-# def create_motor_angles(motor_A, motor_B):
-#     """
-#     Create a list of motor angles by combining each pair of angles from
-#     `motor_A` and `motor_B` in a specific pattern.
-
-#     Each output element is a 12-element list of angles:
-#     [init_0, init_1, init_2, stand_0, stand_1, stand_2,
-#      init_0, init_1, init_2, stand_0, stand_1, stand_2]
-    
-#     Args:
-#         motor_A (list of list of float): 
-#             A list where each element is [init_0, init_1, init_2].
-#         motor_B (list of list of float): 
-#             A list where each element is [stand_0, stand_1, stand_2].
-    
-#     Returns:
-#         list: A list of 12-element lists, each corresponding to the combined angles.
-#     """
-#     combined_angles = [
-#         [
-#             motor_1[0], motor_1[1], motor_1[2],
-#             motor_2[0], motor_2[1], motor_2[2],
-#             motor_1[0], motor_1[1], motor_1[2],
-#             motor_2[0], motor_2[1], motor_2[2],
-#         ]
-#         for motor_1, motor_2 in zip(motor_A, motor_B)
-#     ]
-#     return combined_angles
 
 def create_motor_angles(motor_LF, motor_RF, motor_RB, motor_LB):
     """
@@ -220,9 +192,7 @@ def main():
         [0.03, 0.0701, -0.15],
         [0.04, 0.0701, -0.15],
         [0.05, 0.0701, -0.15],
-        [0.05, 0.0701, -0.16],
         [0.05, 0.0701, -0.17],
-        [0.05, 0.0701, -0.18],
         [0.05, 0.0701, -0.19],
         [0.05, 0.0701, -0.20],
     ])
@@ -242,26 +212,26 @@ def main():
                         [0.05, 0.0701, -0.20],
                         [0.00, 0.0701, -0.20], len(leg_front_lift_step))
     leg_stand = np.array([[0.0, 0.0701, -0.20]] * len(leg_front_lift_init))
-    leg_stand_A = np.array([[-0.05, 0.0701, -0.20]] * len(leg_front_lift_init))
-    leg_stand_B = np.array([[0.00, 0.0701, -0.20]] * len(leg_front_lift_init))
-    leg_stand_C = np.array([[0.05, 0.0701, -0.20]] * len(leg_front_lift_init))
+    leg_stand_A = np.array([[-0.05, 0.0701, -0.20]] * 10)
+    leg_stand_B = np.array([[0.00, 0.0701, -0.20]] * 10)
+    leg_stand_C = np.array([[0.05, 0.0701, -0.20]] * 10)
     leg_stand_front = np.array([[0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_stand_back = np.array([[-0.1, 0.0701, -0.20]] * len(leg_front_lift_init))
     leg_stand_front_up = make_linear_interpolation(
                         [-0.1, 0.0701, -0.20],
-                        [-0.1, 0.0701, -0.225], 25)
+                        [-0.1, 0.0701, -0.225], 10)
     leg_stand_front_down_A = make_linear_interpolation(
                         [-0.05, 0.0701, -0.20],
-                        [-0.05, 0.0701, -0.175], 25)
+                        [-0.05, 0.0701, -0.175], 10)
     leg_stand_front_down_C = make_linear_interpolation(
                         [0.05, 0.0701, -0.20],
                         [0.05, 0.0701, -0.175], 25)
     leg_front_stand_up = make_linear_interpolation(
                         [0.0, 0.0701, -0.20],
-                        [0.0, 0.0701, -0.15], 25)
+                        [0.0, 0.0701, -0.15], 100)
     leg_front_stand_down = make_linear_interpolation(
                         [0.0, 0.0701, -0.15],
-                        [0.0, 0.0701, -0.20], 25)
+                        [0.0, 0.0701, -0.20], 100)
     spotLeg = SpotLeg([0.0701, 0.1501, 0.1451], [0, 0, 0])
 
     # draw leg motion
@@ -385,6 +355,18 @@ def main():
         motor_angle_front_lift_step
     )
 
+    SPOT_DANCE_6 = create_motor_angles(
+        motor_angle_stand_down,
+        motor_angle_stand_up,
+        motor_angle_stand_down,
+        motor_angle_stand_up
+    ) + create_motor_angles(
+        motor_angle_stand_up,
+        motor_angle_stand_down,
+        motor_angle_stand_up,
+        motor_angle_stand_down
+    ) 
+
     motor_stand_up = create_motor_angles(
         motor_angle_stand_up,
         motor_angle_stand_up,
@@ -413,6 +395,7 @@ def main():
         "FORWARD_STEP_3": FORWARD_STEP_3,
         "FORWARD_STEP_4": FORWARD_STEP_4,
         "FORWARD_STEP_5": FORWARD_STEP_5,
+        "SPOT_DANCE_6": SPOT_DANCE_6,
         "motor_stand_up": motor_stand_up,
         "motor_stand_down": motor_stand_down
     }

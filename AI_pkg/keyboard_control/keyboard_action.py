@@ -9,7 +9,7 @@ class KeyboardAction:
     """
     KeyboardAction class
     """
-    filename = "keyboard_control/keyboard_actions/motor_data_2025-03-20-1.pkl"
+    filename = "keyboard_control/keyboard_actions/motor_data_2025-03-21.pkl"
     with open(filename, "rb") as f:
         loaded_data = pickle.load(f)
     
@@ -20,6 +20,7 @@ class KeyboardAction:
     
     FORWARD_STEP_4 = loaded_data["FORWARD_STEP_4"]
     FORWARD_STEP_5 = loaded_data["FORWARD_STEP_5"]
+    FORWARD_STEP_6 = loaded_data["SPOT_DANCE_6"]
     
     # make dog height from 0.15 to 0.20
     FORWARD_STEP_j = loaded_data["motor_stand_up"]
