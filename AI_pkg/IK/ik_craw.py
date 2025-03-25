@@ -40,23 +40,23 @@ def main():
             [0.05, 0.0701, -0.20],
         ])
         leg_front_lift_step = np.array([
-            [-0.100, 0.0701, -0.200],
-            [-0.100, 0.0701, -0.200],
-            [-0.100, 0.0701, -0.200],
-            [-0.100, 0.0701, -0.195],
-            [-0.100, 0.0701, -0.190],
-            [-0.100, 0.0701, -0.185],
-            [-0.100, 0.0701, -0.180],
-            [-0.100, 0.0701, -0.175],
-            [-0.100, 0.0701, -0.170],
-            [-0.100, 0.0701, -0.165],
-            [-0.100, 0.0701, -0.160],
-            [-0.100, 0.0701, -0.155],
-            [-0.100, 0.0701, -0.15],
-            [-0.08, 0.0701, -0.15],
+            [-0.150, 0.0701, -0.200],
+            [-0.150, 0.0701, -0.200],
+            [-0.150, 0.0701, -0.200],
+            [-0.150, 0.0701, -0.195],
+            [-0.150, 0.0701, -0.190],
+            [-0.150, 0.0701, -0.185],
+            [-0.150, 0.0701, -0.180],
+            [-0.150, 0.0701, -0.175],
+            [-0.150, 0.0701, -0.170],
+            [-0.150, 0.0701, -0.165],
+            [-0.150, 0.0701, -0.160],
+            [-0.150, 0.0701, -0.155],
+            [-0.150, 0.0701, -0.15],
+            [-0.12, 0.0701, -0.15],
+            [-0.09, 0.0701, -0.15],
             [-0.06, 0.0701, -0.15],
-            [-0.04, 0.0701, -0.15],
-            [-0.02, 0.0701, -0.15],
+            [-0.03, 0.0701, -0.15],
             [0.00, 0.0701, -0.15],
             [0.01, 0.0701, -0.15],
             [0.02, 0.0701, -0.15],
@@ -80,7 +80,9 @@ def main():
         leg_front_stand_C = make_linear_interpolation(
                         [0.05, 0.0701, -0.20],
                         [0.00, 0.0701, -0.20], 26)
-        
+        leg_front_stand_D = make_linear_interpolation(
+                        [-0.10, 0.0701, -0.20],
+                        [-0.15, 0.0701, -0.20], 26)
         leg_stand_A_down = make_linear_interpolation(
                     [-0.10, 0.0701, -0.200],
                     [-0.10, 0.0701, -0.220], 26)
@@ -107,6 +109,8 @@ def main():
                 leg_front_stand_C, spotLeg)
         motor_angle_stand_C = calculate_ik(
                 leg_stand_C, spotLeg)
+        motor_angle_stand_D = calculate_ik(
+                leg_front_stand_D, spotLeg)
         motor_angle_stand_A_down = calculate_ik(
                 leg_stand_A_down, spotLeg)
         motor_angle_stand_B_up = calculate_ik(
@@ -124,7 +128,7 @@ def main():
         FORWARD_STEP_3 = create_motor_angles(
             motor_angle_front_stand_C,
             motor_angle_front_stand_A,
-            motor_angle_stand_step,
+            motor_angle_stand_D,
             motor_angle_front_stand_B 
         ) + create_motor_angles(
             motor_angle_stand_C,
@@ -144,7 +148,7 @@ def main():
             motor_angle_front_stand_A,
             motor_angle_front_stand_C,
             motor_angle_front_stand_B,
-            motor_angle_stand_step,
+            motor_angle_stand_D,
         ) + create_motor_angles(
             motor_angle_stand_A_down,
             motor_angle_stand_C,
