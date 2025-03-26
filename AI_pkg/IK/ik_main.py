@@ -118,6 +118,8 @@ def create_motor_angles(motor_LF, motor_RF, motor_RB, motor_LB):
     Returns:
         list: A list of 12-element lists, each corresponding to the combined angles.
     """
+    if len(motor_LF) != len(motor_RF) or len(motor_RF) != len(motor_RB) or len(motor_RB) != len(motor_LB):
+        raise ValueError("All input lists must have the same length")
     combined_angles = [
         [
             motor_1[0], motor_1[1], motor_1[2],
