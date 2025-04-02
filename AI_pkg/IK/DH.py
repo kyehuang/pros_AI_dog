@@ -28,8 +28,44 @@ def forward_kinematics(joint_angles, joint_lengths, base_translation):
 
     return T_base_0 @ T_base_1 @ T_joint_1 @ T_rot_1 @ T_joint_2 @ T_joint_3
 
+def get_foot_position(joint_angles, joint_lengths, base_translation):
+    """
+    Calculate the foot positions of a quadruped robot given joint angles and lengths.
+    :param joint_angles: List of joint angles in degrees
+    :param joint_lengths: List of joint lengths
+    :param base_translation: Base translation of the robot
+    :return: List of foot positions for each leg
+    """
+    # Joint3 and Joint6 are the other side of the robot
+    joint_angles[3] = joint_angles[3] + 180
+    joint_angles[4] = -joint_angles[4]
+    joint_angles[6] = joint_angles[6] + 180
+    joint_angles[7] = -joint_angles[7]
+
+    # Convert joint angles from degrees to radians
+    joint_angles= [radians(joint_angle) for joint_angle in joint_angles]
+    
+    # Calculate the LF leg position
+    LF_base_translation = [base_translation[0] / 2, base_translation[1] / 2, base_translation[2] / 2]
+    # Extract the translation part of the transformation matrix
+    LF_end_position = forward_kinematics(joint_angles[0:3], joint_lengths, LF_base_translation)[:3, 3]
+    
+    # Calculate the RF leg position
+    RF_base_translation = [base_translation[0] / 2, -base_translation[1] / 2, base_translation[2] / 2]
+    RF_end_position = forward_kinematics(joint_angles[3:6], joint_lengths, RF_base_translation)[:3, 3]
+    
+    # Calculate the RB leg position
+    RH_base_translation = [-base_translation[0] / 2, -base_translation[1] / 2, base_translation[2] / 2]
+    RH_end_position = forward_kinematics(joint_angles[6:9], joint_lengths, RH_base_translation)[:3, 3]
+
+    # Calculate the LB leg position
+    LH_base_translation = [-base_translation[0] / 2, base_translation[1] / 2, base_translation[2] / 2]
+    LH_end_position = forward_kinematics(joint_angles[9:12], joint_lengths, LH_base_translation)[:3, 3]
+   
+    return [LF_end_position, RF_end_position, RH_end_position, LH_end_position]
+
 if __name__ == "__main__":
-    # Example usage
+    # Example usage: calculate the end position of a robot arm
     BaseTranslation = [3, 2, 0]
     JointAngles = [radians(0), radians(90), radians(90)]
     JointLengths = [1, 2, 2]
@@ -49,3 +85,9 @@ if __name__ == "__main__":
         )
     print("IK Result:")
     print(test_angle)
+
+    # Example usage: Calculate the foot positions of a quadruped robot
+    JointAngles = [0, 90, 90, 0, 90, 90, 0, 90, 90, 0, 90, 90]
+    JointLengths = [1, 2, 2]
+    BaseTranslation = [6, 4, 0]
+    get_foot_position(JointAngles, JointLengths, BaseTranslation)
