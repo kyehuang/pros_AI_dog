@@ -39,8 +39,10 @@ def get_foot_position(joint_angles, joint_lengths, base_translation):
     # Joint3 and Joint6 are the other side of the robot
     joint_angles[3] = joint_angles[3] + 180
     joint_angles[4] = -joint_angles[4]
+    joint_angles[5] = -joint_angles[5]
     joint_angles[6] = joint_angles[6] + 180
     joint_angles[7] = -joint_angles[7]
+    joint_angles[8] = -joint_angles[8]
 
     # Convert joint angles from degrees to radians
     joint_angles= [radians(joint_angle) for joint_angle in joint_angles]
@@ -90,4 +92,4 @@ if __name__ == "__main__":
     JointAngles = [0, 90, 90, 0, 90, 90, 0, 90, 90, 0, 90, 90]
     JointLengths = [1, 2, 2]
     BaseTranslation = [6, 4, 0]
-    get_foot_position(JointAngles, JointLengths, BaseTranslation)
+    print(get_foot_position(JointAngles, JointLengths, BaseTranslation))
