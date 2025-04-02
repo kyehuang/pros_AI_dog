@@ -59,9 +59,9 @@ class SpotLeg():
             + np.arcsin(self.joint_lengths[2] * np.sin(joint_3_angle)/g)
         )
 
-        return {"joint_1_angle": np.degrees(joint_1_angle),
-                "joint_2_angle": np.degrees(joint_2_angle),
-                "joint_3_angle": np.degrees(joint_3_angle)}
+        return {"joint_1_angle": np.degrees(joint_1_angle) - 90,
+                "joint_2_angle": 90 + np.degrees(joint_2_angle),
+                "joint_3_angle": 180 - np.degrees(joint_3_angle)}
 
 if __name__ == "__main__":
     # Example usage
