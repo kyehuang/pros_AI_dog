@@ -86,12 +86,7 @@ def calculate_ik(
     for pos in positions:
         joint_angle = leg.calculate_ik(pos, base_position)
 
-        # Extract and transform the joint angles as needed
-        joint_1 = round(float(joint_angle["joint_1_angle"]), 2)
-        joint_2 = round(float(joint_angle["joint_2_angle"]), 2)
-        joint_3 = round(float(joint_angle["joint_3_angle"]), 2)
-
-        ik_angles.append([joint_1, joint_2, joint_3])
+        ik_angles.append([joint_angle[0], joint_angle[1], joint_angle[2]])
 
     return ik_angles
 
