@@ -46,16 +46,16 @@ def get_foot_position(joint_angles, joint_lengths, base_translation):
 
     # Convert joint angles from degrees to radians
     joint_angles= [radians(joint_angle) for joint_angle in joint_angles]
-    
+
     # Calculate the LF leg position
-    LF_base_translation = [base_translation[0] / 2, base_translation[1] / 2, base_translation[2] / 2]
+    LF_base_translation = [base_translation[0]/2, base_translation[1]/2, base_translation[2]/2]
     # Extract the translation part of the transformation matrix
-    LF_end_position = forward_kinematics(joint_angles[0:3], joint_lengths, LF_base_translation)[:3, 3]
-    
+    LF_end_position = forward_kinematics(joint_angles[0:3], joint_lengths, LF_base_translation)[:3,3]
+
     # Calculate the RF leg position
     RF_base_translation = [base_translation[0] / 2, -base_translation[1] / 2, base_translation[2] / 2]
     RF_end_position = forward_kinematics(joint_angles[3:6], joint_lengths, RF_base_translation)[:3, 3]
-    
+
     # Calculate the RB leg position
     RH_base_translation = [-base_translation[0] / 2, -base_translation[1] / 2, base_translation[2] / 2]
     RH_end_position = forward_kinematics(joint_angles[6:9], joint_lengths, RH_base_translation)[:3, 3]
@@ -63,8 +63,46 @@ def get_foot_position(joint_angles, joint_lengths, base_translation):
     # Calculate the LB leg position
     LH_base_translation = [-base_translation[0] / 2, base_translation[1] / 2, base_translation[2] / 2]
     LH_end_position = forward_kinematics(joint_angles[9:12], joint_lengths, LH_base_translation)[:3, 3]
-   
+
     return [LF_end_position, RF_end_position, RH_end_position, LH_end_position]
+
+def euler_to_rotation_matrix(roll, pitch, yaw):
+    """
+    Convert Euler angles (roll, pitch, yaw) to a rotation matrix.
+    :param roll: Rotation around the x-axis (in radians)
+    :param pitch: Rotation around the y-axis (in radians)
+    :param yaw: Rotation around the z-axis (in radians)
+    :return: 3x3 rotation matrix
+    """
+    # Ensure angles are in radians
+    roll = radians(roll)
+    pitch = radians(pitch)
+    yaw = radians(yaw)
+    # Check if angles are in radians
+    if not (isinstance(roll, float) and isinstance(pitch, float) and isinstance(yaw, float)):
+        raise ValueError("Angles must be in radians")
+    # Compute individual rotation matrices
+    r_x = np.array([
+        [1, 0, 0],
+        [0, np.cos(roll), -np.sin(roll)],
+        [0, np.sin(roll), np.cos(roll)]
+    ])
+
+    r_y = np.array([
+        [np.cos(pitch), 0, np.sin(pitch)],
+        [0, 1, 0],
+        [-np.sin(pitch), 0, np.cos(pitch)]
+    ])
+
+    r_z = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0],
+        [np.sin(yaw), np.cos(yaw), 0],
+        [0, 0, 1]
+    ])
+
+    # Combined rotation matrix (ZYX order)
+    r = r_z @ r_y @ r_x
+    return r
 
 if __name__ == "__main__":
     # Example usage: calculate the end position of a robot arm
@@ -72,7 +110,7 @@ if __name__ == "__main__":
     JointAngles = [radians(0), radians(90), radians(90)]
     JointLengths = [1, 2, 2]
     end_position = forward_kinematics(JointAngles, JointLengths, BaseTranslation)
-    
+
     print("joint Base Position:")
     print(BaseTranslation)
     print("Joint Angles:")
@@ -81,10 +119,7 @@ if __name__ == "__main__":
     print(end_position[:3, 3])  # Extract the translation part of the transformation matrix
 
     spotLeg = SpotLeg(JointLengths, [0, 0, 0])
-
-    test_angle = calculate_ik(
-            np.array([end_position[:3, 3]]), spotLeg, BaseTranslation
-        )
+    test_angle = spotLeg.calculate_ik(end_position[:3, 3], BaseTranslation)
     print("IK Result:")
     print(test_angle)
 
@@ -93,3 +128,14 @@ if __name__ == "__main__":
     JointLengths = [1, 2, 2]
     BaseTranslation = [6, 4, 0]
     print(get_foot_position(JointAngles, JointLengths, BaseTranslation))
+
+    # Example usage: Convert Euler angles to a rotation matrix
+    print("Euler to Rotation Matrix:")
+    ROLL = 0
+    PITCH = 0
+    YAW = 90
+    rotation_matrix = euler_to_rotation_matrix(ROLL, PITCH, YAW)
+    print(rotation_matrix)
+    point = np.array([1, 10, 50])
+    rotated_point = rotation_matrix @ point
+    print("Rotated Point:", rotated_point)
