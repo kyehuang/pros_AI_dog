@@ -1,7 +1,7 @@
 import numpy as np
 from math import cos, sin, radians, degrees
 
-from SpotLeg import SpotLeg
+from IK.SpotLeg import SpotLeg
 
 def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
     """
@@ -53,6 +53,51 @@ def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
 
     return r @ point
 
+def spot_state_creater(spot_leg:SpotLeg, base_position, base_rotation, base_translation):
+    # Define the leg end position of the Spot robot
+    lf_end_position = [ base_translation[0] / 2,
+                        base_translation[1] / 2 + spot_leg.joint_lengths[0],
+                        0]
+    rf_end_position = [ base_translation[0] / 2,
+                       -base_translation[1] / 2 + spot_leg.joint_lengths[0], # because the y axis is inverted
+                        0]
+    rb_end_position = [-base_translation[0] / 2,
+                       -base_translation[1] / 2 + spot_leg.joint_lengths[0], # because the y axis is inverted
+                        0]
+    lb_end_position = [-base_translation[0] / 2,
+                        base_translation[1] / 2 + spot_leg.joint_lengths[0],
+                        0]
+    print("lf_end_position:", lf_end_position)
+    print("rf_end_position:", rf_end_position)
+    print("rb_end_position:", rb_end_position)
+    print("lb_end_position:", lb_end_position)
+
+    # Calculate the leg shoulder positions
+    lf_shoulder = [base_position[0] + base_translation[0] / 2,
+                   base_position[1] + base_translation[1] / 2,
+                   base_position[2]]
+    rf_shoulder = [base_position[0] + base_translation[0] / 2,
+                     base_position[1] - base_translation[1] / 2,
+                     base_position[2]]
+    rb_shoulder = [base_position[0] - base_translation[0] / 2,
+                     base_position[1] - base_translation[1] / 2,
+                     base_position[2]]
+    lb_shoulder = [base_position[0] - base_translation[0] / 2,
+                        base_position[1] + base_translation[1] / 2,
+                        base_position[2]]
+    print("lf_shoulder:", lf_shoulder)
+    print("rf_shoulder:", rf_shoulder)
+    print("rb_shoulder:", rb_shoulder)
+    print("lb_shoulder:", lb_shoulder)
+
+    # Calculate the inverse kinematics for each leg
+    lf_angles = spot_leg.calculate_ik(lf_end_position, lf_shoulder)
+    rf_angles = spot_leg.calculate_ik(rf_end_position, rf_shoulder)
+    rb_angles = spot_leg.calculate_ik(rb_end_position, rb_shoulder)
+    lb_angles = spot_leg.calculate_ik(lb_end_position, lb_shoulder)
+
+    return lf_angles + rf_angles + rb_angles +  lb_angles
+
 if __name__ == "__main__":
     SpotPosition = [0, 0, 2]
     JointLengths = [1.0, 2.0, 2.0]
@@ -66,3 +111,11 @@ if __name__ == "__main__":
     # 同樣的旋轉，但這次是旋轉點（物體）
     rotated_obj = rotate_point(p, [45, 0, 0], order='xyz', rotate_axes=False)
     print("旋轉點本身後的座標:", rotated_obj)
+
+    # Create a SpotLeg instance
+    SpotLeg = SpotLeg(JointLengths, [0.0, 0.0, 0.0])
+    BasePosition = [0, 0, 2]
+    BaseRotation = [0, 0, 0]
+    # Calculate the end position of the leg
+    motor_angles = spot_state_creater(SpotLeg, BasePosition, BaseRotation, BaseTranslation)
+    print("Motor angles for each leg:", motor_angles)
