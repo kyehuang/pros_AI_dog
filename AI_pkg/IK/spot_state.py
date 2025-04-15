@@ -1,5 +1,9 @@
 import numpy as np
 from math import cos, sin, radians, degrees
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 from IK.SpotLeg import SpotLeg
 
@@ -23,21 +27,21 @@ def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
     def rx(theta):
         return np.array([
             [1, 0, 0],
-            [0, np.cos(theta), -np.sin(theta)],
-            [0, np.sin(theta),  np.cos(theta)]
+            [0,  np.cos(theta), np.sin(theta)],
+            [0, -np.sin(theta), np.cos(theta)]
         ])
 
     def ry(theta):
         return np.array([
-            [ np.cos(theta), 0, np.sin(theta)],
+            [np.cos(theta), 0, -np.sin(theta)],
             [0, 1, 0],
-            [-np.sin(theta), 0, np.cos(theta)]
+            [np.sin(theta), 0, np.cos(theta)]
         ])
 
     def rz(theta):
         return np.array([
-            [np.cos(theta), -np.sin(theta), 0],
-            [np.sin(theta),  np.cos(theta), 0],
+            [ np.cos(theta), np.sin(theta), 0],
+            [-np.sin(theta), np.cos(theta), 0],
             [0, 0, 1]
         ])
 
@@ -53,7 +57,7 @@ def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
 
     return r @ point
 
-def spot_state_creater(spot_leg:SpotLeg, base_position, base_rotation, base_translation):
+def spot_state_creater(spot_leg, base_position, base_rotation, base_translation):
     # Define the leg end position of the Spot robot
     lf_end_position = [ base_translation[0] / 2,
                         base_translation[1] / 2 + spot_leg.joint_lengths[0],
@@ -72,44 +76,62 @@ def spot_state_creater(spot_leg:SpotLeg, base_position, base_rotation, base_tran
     print("rb_end_position:", rb_end_position)
     print("lb_end_position:", lb_end_position)
 
+    # Rotate the shoulder offset
+    lf_shoulder_offset = [ base_translation[0] / 2,
+                           base_translation[1] / 2,
+                           0]
+    rf_shoulder_offset = [ base_translation[0] / 2,
+                          -base_translation[1] / 2,
+                           0]
+    rb_shoulder_offset = [ -base_translation[0] / 2,
+                           -base_translation[1] / 2,
+                           0]
+    lb_shoulder_offset = [ -base_translation[0] / 2,
+                           base_translation[1] / 2,
+                           0]
+    lf_shoulder_offset = rotate_point(lf_shoulder_offset, base_rotation, order='xyz', rotate_axes=True)
+    rf_shoulder_offset = rotate_point(rf_shoulder_offset, base_rotation, order='xyz', rotate_axes=True)
+    rb_shoulder_offset = rotate_point(rb_shoulder_offset, base_rotation, order='xyz', rotate_axes=True)
+    lb_shoulder_offset = rotate_point(lb_shoulder_offset, base_rotation, order='xyz', rotate_axes=True)
+
     # Calculate the leg shoulder positions
-    lf_shoulder = [base_position[0] + base_translation[0] / 2,
-                   base_position[1] + base_translation[1] / 2,
-                   base_position[2]]
-    rf_shoulder = [base_position[0] + base_translation[0] / 2,
-                     base_position[1] - base_translation[1] / 2,
-                     base_position[2]]
-    rb_shoulder = [base_position[0] - base_translation[0] / 2,
-                     base_position[1] - base_translation[1] / 2,
-                     base_position[2]]
-    lb_shoulder = [base_position[0] - base_translation[0] / 2,
-                        base_position[1] + base_translation[1] / 2,
-                        base_position[2]]
+    lf_shoulder = [base_position[0] + lf_shoulder_offset[0],
+                     base_position[1] + lf_shoulder_offset[1],
+                     base_position[2] + lf_shoulder_offset[2]]
+    rf_shoulder = [base_position[0] + rf_shoulder_offset[0],
+                    -base_position[1] + rf_shoulder_offset[1],
+                     base_position[2] + rf_shoulder_offset[2]]
+    rb_shoulder = [base_position[0] + rb_shoulder_offset[0],
+                    -base_position[1] + rb_shoulder_offset[1],
+                     base_position[2] + rb_shoulder_offset[2]]
+    lb_shoulder = [base_position[0] + lb_shoulder_offset[0],
+                    base_position[1] + lb_shoulder_offset[1],
+                    base_position[2] + lb_shoulder_offset[2]]
     print("lf_shoulder:", lf_shoulder)
     print("rf_shoulder:", rf_shoulder)
     print("rb_shoulder:", rb_shoulder)
     print("lb_shoulder:", lb_shoulder)
 
-    # Calculate the inverse kinematics for each leg
     lf_angles = spot_leg.calculate_ik(lf_end_position, lf_shoulder)
     rf_angles = spot_leg.calculate_ik(rf_end_position, rf_shoulder)
     rb_angles = spot_leg.calculate_ik(rb_end_position, rb_shoulder)
     lb_angles = spot_leg.calculate_ik(lb_end_position, lb_shoulder)
-
+    rf_angles[0] = - rf_angles[0]
+    rb_angles[0] = - rb_angles[0]
     return lf_angles + rf_angles + rb_angles +  lb_angles
 
 if __name__ == "__main__":
     SpotPosition = [0, 0, 2]
     JointLengths = [1.0, 2.0, 2.0]
     BaseTranslation = [6, 4, 0]
-    p = [0, 1, -2]
-
-    # 只旋轉 x 軸 45 度，座標系旋轉
-    rotated = rotate_point(p, [45, 0, 0], order='xyz', rotate_axes=True)
-    print("旋轉座標軸後的座標:", rotated)
+    p = [0, 2, -2]
 
     # 同樣的旋轉，但這次是旋轉點（物體）
-    rotated_obj = rotate_point(p, [45, 0, 0], order='xyz', rotate_axes=False)
+    rotated = rotate_point(p, [0, 0, 90], order='xyz', rotate_axes=True)
+    print("旋轉座標軸後的座標:", rotated)
+
+    # 只旋轉 x 軸 45 度，座標系旋轉
+    rotated_obj = rotate_point(p, [0, 0, 90], order='xyz', rotate_axes=False)
     print("旋轉點本身後的座標:", rotated_obj)
 
     # Create a SpotLeg instance
