@@ -6,7 +6,7 @@ import curses
 
 from utils.gym_manger import GymManager
 from IK.spot_state import spot_state_creater
-from IK.SpotLeg import SpotLeg
+from IK.spot_leg import SpotLeg
 from ros_receive_and_processing import ai_dog_node
 
 
@@ -14,9 +14,9 @@ class DogStateController:
     """
     This class is used to control the Spot robot using the keyboard
     """
-    def __init__(self, node : ai_dog_node):
+    def __init__(self, dog_node : ai_dog_node):
         # Initialize the AI_dog_node
-        self.__node = node
+        self.__node = dog_node
         self.__stdscr = None
         self.__key_count = 0
 
@@ -34,13 +34,22 @@ class DogStateController:
         self.__update_flag = True
 
         # key mapping
-        self.key_mapping = {
+        self.key_position_mapping = {
             'w': [ 0.01, 0, 0],  # spot robot moves forward
             's': [-0.01, 0, 0], # spot robot moves backward
             'a': [0,  0.005, 0],  # spot robot moves left
             'd': [0, -0.005, 0], # spot robot moves right
             'r': [0,  0, 0.01],  # spot robot moves up
             'f': [0, 0, -0.01], # spot robot moves down
+        }
+
+        self.key_rotation_mapping = {
+            't': [1, 0, 0],  # spot robot rotates around x axis
+            'g': [-1, 0, 0], # spot robot rotates around x axis
+            'y': [0, 1, 0],  # spot robot rotates around y axis
+            'h': [0, -1, 0], # spot robot rotates around y axis
+            'u': [0, 0, 1],  # spot robot rotates around z axis
+            'j': [0, 0, -1], # spot robot rotates around z axis
         }
 
 
@@ -58,12 +67,18 @@ class DogStateController:
                     if input_char == ord('x'):
                         self.__update_flag = False
 
-                    elif chr(input_char) in self.key_mapping:
-                        self.base_position[0] += self.key_mapping[chr(input_char)][0]
-                        self.base_position[1] += self.key_mapping[chr(input_char)][1]
-                        self.base_position[2] += self.key_mapping[chr(input_char)][2]
+                    elif chr(input_char) in self.key_position_mapping:
+                        self.base_position[0] += self.key_position_mapping[chr(input_char)][0]
+                        self.base_position[1] += self.key_position_mapping[chr(input_char)][1]
+                        self.base_position[2] += self.key_position_mapping[chr(input_char)][2]
+                    elif chr(input_char) in self.key_rotation_mapping:
+                        self.base_rotation[0] += self.key_rotation_mapping[chr(input_char)][0]
+                        self.base_rotation[1] += self.key_rotation_mapping[chr(input_char)][1]
+                        self.base_rotation[2] += self.key_rotation_mapping[chr(input_char)][2]
+
                     elif input_char == ord('z'):
                         self.base_position = [0, 0, 0.20]
+                        self.base_rotation = [0, 0, 0]
                     self.__print_basic_info(input_char)
                     self.__publish_spot_state()
                 else:
@@ -102,6 +117,8 @@ class DogStateController:
         # show receive data
         self.__stdscr.move(1, 0)
         self.__stdscr.addstr(f"state: {self.base_position}")
+        self.__stdscr.move(2, 0)
+        self.__stdscr.addstr(f"rotation: {self.base_rotation}")
 
     def __publish_spot_state(self):
         """
@@ -113,6 +130,9 @@ class DogStateController:
 
         # Publish the joint angles to the AI_dog_node
         self.__node.publish_spot_actions(joint_angles)
+        # Print the joint angles
+        self.__stdscr.move(3, 0)
+        self.__stdscr.addstr(f"joint angles: {joint_angles}")
 
 
 if __name__ == "__main__":
