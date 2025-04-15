@@ -1,7 +1,7 @@
 import numpy as np
 import datetime
 import pickle
-from SpotLeg import SpotLeg
+from IK.spot_leg import SpotLeg
 from ik_main import make_linear_interpolation, calculate_ik, create_motor_angles
 def translate_step(step, length):
     for i in range(len(step)):

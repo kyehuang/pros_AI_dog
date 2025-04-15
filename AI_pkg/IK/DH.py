@@ -1,8 +1,10 @@
 import numpy as np
 from math import cos, sin, radians, degrees
+import sys
+import os
 
-from ik_main import calculate_ik
-from SpotLeg import SpotLeg
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from IK.spot_leg import SpotLeg
 
 def dh_matrix(theta, d, a, alpha):
     return np.array([
@@ -57,14 +59,19 @@ def get_foot_position(joint_angles, joint_lengths, base_translation):
     RF_end_position = forward_kinematics(joint_angles[3:6], joint_lengths, RF_base_translation)[:3, 3]
 
     # Calculate the RB leg position
-    RH_base_translation = [-base_translation[0] / 2, -base_translation[1] / 2, base_translation[2] / 2]
-    RH_end_position = forward_kinematics(joint_angles[6:9], joint_lengths, RH_base_translation)[:3, 3]
+    RB_base_translation = [-base_translation[0] / 2, -base_translation[1] / 2, base_translation[2] / 2]
+    RB_end_position = forward_kinematics(joint_angles[6:9], joint_lengths, RB_base_translation)[:3, 3]
 
     # Calculate the LB leg position
-    LH_base_translation = [-base_translation[0] / 2, base_translation[1] / 2, base_translation[2] / 2]
-    LH_end_position = forward_kinematics(joint_angles[9:12], joint_lengths, LH_base_translation)[:3, 3]
+    LB_base_translation = [-base_translation[0] / 2, base_translation[1] / 2, base_translation[2] / 2]
+    LB_end_position = forward_kinematics(joint_angles[9:12], joint_lengths, LB_base_translation)[:3, 3]
 
-    return [LF_end_position, RF_end_position, RH_end_position, LH_end_position]
+    return {
+        "LF": [round(x, 3) for x in LF_end_position.tolist()],
+        "RF": [round(x, 3) for x in RF_end_position.tolist()],
+        "RB": [round(x, 3) for x in RB_end_position.tolist()],
+        "LB": [round(x, 3) for x in LB_end_position.tolist()]
+    }
 
 def euler_to_rotation_matrix(roll, pitch, yaw):
     """
@@ -127,6 +134,9 @@ if __name__ == "__main__":
     JointAngles = [0, 90, 90, 0, 90, 90, 0, 90, 90, 0, 90, 90]
     JointLengths = [1, 2, 2]
     BaseTranslation = [6, 4, 0]
+    # JointAngles = [-13.28, 139.62, 101.61, 13.28, 139.62, 101.61, 13.28, 139.62, 101.61, -13.28, 139.62, 101.61]
+    # JointLengths = [0.0801, 0.1501, 0.1451]
+    # BaseTranslation = [0.3740, 0.1670, 0]
     print(get_foot_position(JointAngles, JointLengths, BaseTranslation))
 
     # Example usage: Convert Euler angles to a rotation matrix

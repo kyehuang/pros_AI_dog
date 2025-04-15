@@ -5,7 +5,7 @@ kinematics of a leg
 import numpy as np
 import pickle
 import datetime
-from SpotLeg import SpotLeg
+from IK.spot_leg import SpotLeg
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Union, Optional

@@ -4,7 +4,7 @@ This script is used to test the spot_state_creater class
 import unittest
 
 from IK.spot_state import spot_state_creater
-from IK.SpotLeg import SpotLeg
+from IK.spot_leg import SpotLeg
 from IK.DH import get_foot_position
 
 class TestDogStateController(unittest.TestCase):
