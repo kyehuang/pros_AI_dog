@@ -1,211 +1,281 @@
-import sqlite3
+import asyncio
 import json
+import time
+import dataclasses
+from tqdm import tqdm
 
-import sqlite3
-import json
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy import (
+    Column, Integer, Float, Text, ForeignKey, UniqueConstraint, select
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.dialects.postgresql import insert
 
-class SpotGraphDB:
-    def __init__(self, db_path="spot_graph.db"):
-        self.conn = sqlite3.connect(db_path)
-        self._create_tables()
+Base = declarative_base()
 
-    def _create_tables(self):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS nodes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                x REAL, y REAL, z REAL,
-                rx REAL, ry REAL, rz REAL,
-                joint_angle TEXT,
-                is_visited INTEGER,
-                up_node_id INTEGER,
-                down_node_id INTEGER,
-                left_node_id INTEGER,
-                right_node_id INTEGER,
-                front_node_id INTEGER,
-                back_node_id INTEGER,
-                rx_plus_node_id INTEGER,
-                rx_minus_node_id INTEGER,
-                ry_plus_node_id INTEGER,
-                ry_minus_node_id INTEGER,
-                rz_plus_node_id INTEGER,
-                rz_minus_node_id INTEGER,
-                FOREIGN KEY (up_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (down_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (left_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (right_node_id) REFERENCES nodes(id)
-                FOREIGN KEY (front_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (back_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (rx_plus_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (rx_minus_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (ry_plus_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (ry_minus_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (rz_plus_node_id) REFERENCES nodes(id),
-                FOREIGN KEY (rz_minus_node_id) REFERENCES nodes(id)
-            )
-        ''')
-        self.conn.commit()
+@dataclasses.dataclass
+class Node(Base):
+    """
+    A class representing a node in the graph.
+    """
+    __tablename__ = 'nodes'
 
-    def add_node(self, node):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            SELECT id FROM nodes
-            WHERE x=? AND y=? AND z=? AND rx=? AND ry=? AND rz=?
-        ''', (*node.base_position, *node.base_rotation))
-        result = cursor.fetchone()
-        if result:
-            return result[0]
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    x = Column(Float, nullable=False)
+    y = Column(Float, nullable=False)
+    z = Column(Float, nullable=False)
+    rx = Column(Float, nullable=False)
+    ry = Column(Float, nullable=False)
+    rz = Column(Float, nullable=False)
+    joint_angle = Column(Text)
+    is_visited = Column(Integer)
 
-        cursor.execute('''
-            INSERT INTO nodes (
-                x, y, z, rx, ry, rz, joint_angle, is_visited,
-                up_node_id, down_node_id, left_node_id, right_node_id,
-                front_node_id, back_node_id, rx_plus_node_id, rx_minus_node_id,
-                ry_plus_node_id, ry_minus_node_id, rz_plus_node_id, rz_minus_node_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            *node.base_position, *node.base_rotation,
-            json.dumps(node.joint_angle), int(node.is_visited),
-            None, None, None, None, None, None,
-            None, None, None, None, None, None,
-        ))
-        self.conn.commit()
-        return cursor.lastrowid
+    up_node_id = Column(Integer, ForeignKey('nodes.id'))
+    down_node_id = Column(Integer, ForeignKey('nodes.id'))
+    left_node_id = Column(Integer, ForeignKey('nodes.id'))
+    right_node_id = Column(Integer, ForeignKey('nodes.id'))
+    front_node_id = Column(Integer, ForeignKey('nodes.id'))
+    back_node_id = Column(Integer, ForeignKey('nodes.id'))
+    rx_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    rx_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    ry_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    ry_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    rz_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    rz_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
 
-    def update_direction_link(self, from_id, to_id, direction):
-        cursor = self.conn.cursor()
-        if direction not in {"up", "down", "left", "right", "front", "back", "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus"}:
-            raise ValueError("Direction must be one of: up, down, left, right, front, back, rx_plus, rx_minus, ry_plus, ry_minus, rz_plus, rz_minus")            
+    __table_args__ = (
+        UniqueConstraint('x', 'y', 'z', 'rx', 'ry', 'rz', name='uq_nodes_position_rotation'),
+    )
 
-        sql = f'UPDATE nodes SET {direction}_node_id = ? WHERE id = ?'
-        cursor.execute(sql, (to_id, from_id))
-        self.conn.commit()
+class AsyncSpotGraphDB:
+    """ 
+    A class representing a database for the Spot robot's graph.
+    """
+    def __init__(self, db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"):
+        self.engine = create_async_engine(db_url, echo=False)
+        self.async_session = sessionmaker(self.engine, expire_on_commit=False, class_=AsyncSession)
 
-    def get_direction_neighbors(self, node_id):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            SELECT up_node_id, down_node_id, left_node_id, right_node_id, 
-                     front_node_id, back_node_id, rx_plus_node_id, rx_minus_node_id,
-                     ry_plus_node_id, ry_minus_node_id, rz_plus_node_id, rz_minus_node_id
-            FROM nodes
-            WHERE id = ?
-        ''', (node_id,))
-        result = cursor.fetchone()
+    async def create_tables(self):
+        """
+        Create the database tables if they do not exist.
+        """
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-        if result:
-            return {
-                "up": result[0],
-                "down": result[1],
-                "left": result[2],
-                "right": result[3],
-                "front": result[4], 
-                "back": result[5],
-                "rx_plus": result[6],
-                "rx_minus": result[7],
-                "ry_plus": result[8],
-                "ry_minus": result[9],
-                "rz_plus": result[10],
-                "rz_minus": result[11]
-            }
-        else:
+    async def add_node(self, node):
+        """
+        Add a node to the database.
+        """
+        async with self.async_session() as session:
+            async with session.begin():
+                stmt = insert(Node).values(
+                    x=node.base_position[0],
+                    y=node.base_position[1],
+                    z=node.base_position[2],
+                    rx=node.base_rotation[0],
+                    ry=node.base_rotation[1],
+                    rz=node.base_rotation[2],
+                    joint_angle=json.dumps(node.joint_angle),
+                    is_visited=int(node.is_visited)
+                ).on_conflict_do_nothing(
+                    index_elements=["x", "y", "z", "rx", "ry", "rz"]
+                )
+                await session.execute(stmt)
+            await session.commit()
+
+    async def bulk_add_nodes(self, nodes, batch_size=500):
+        """
+        Add a batch of nodes to the database.
+        """
+        key_to_id = {}
+
+        async with self.async_session() as session:
+            for i in tqdm(range(0, len(nodes), batch_size), desc="Inserting nodes"):
+                batch = nodes[i:i+batch_size]
+                stmt = insert(Node).values([
+                    {
+                        "x": node.base_position[0],
+                        "y": node.base_position[1],
+                        "z": node.base_position[2],
+                        "rx": node.base_rotation[0],
+                        "ry": node.base_rotation[1],
+                        "rz": node.base_rotation[2],
+                        "joint_angle": json.dumps(node.joint_angle),
+                        "is_visited": int(node.is_visited)
+                    }
+                    for node in batch
+                ]).on_conflict_do_nothing(
+                    index_elements=["x", "y", "z", "rx", "ry", "rz"]
+                ).returning(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz)
+
+                result = await session.execute(stmt)
+                inserted = result.fetchall()
+
+                for row in inserted:
+                    key = (
+                        round(row.x, 3), round(row.y, 3), round(row.z, 3),
+                        round(row.rx, 3), round(row.ry, 3), round(row.rz, 3)
+                    )
+                    key_to_id[key] = row.id
+
+            await session.commit()
+
+        async with self.async_session() as session:
+            for node in nodes:
+                key = (
+                    round(node.base_position[0], 3),
+                    round(node.base_position[1], 3),
+                    round(node.base_position[2], 3),
+                    round(node.base_rotation[0], 3),
+                    round(node.base_rotation[1], 3),
+                    round(node.base_rotation[2], 3)
+                )
+                if key not in key_to_id:
+                    stmt = select(Node.id).where(
+                        (Node.x == key[0]) & (Node.y == key[1]) & (Node.z == key[2]) &
+                        (Node.rx == key[3]) & (Node.ry == key[4]) & (Node.rz == key[5])
+                    )
+                    result = await session.execute(stmt)
+                    node_id = result.scalar()
+                    key_to_id[key] = node_id
+
+        return key_to_id
+
+    async def update_direction_link(self, from_id, to_id, direction):
+        """
+        Update the direction link between two nodes in the database.
+        """
+        valid_directions = {
+            "up", "down", "left", "right", "front", "back",
+            "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus"
+        }
+        if direction not in valid_directions:
+            raise ValueError(f"Invalid direction: {direction}")
+
+        async with self.async_session() as session:
+            async with session.begin():
+                node = await session.get(Node, from_id)
+                setattr(node, f"{direction}_node_id", to_id)
+            await session.commit()
+
+    async def bulk_update_direction_links(self,
+                updates: list[tuple[int, int, str]], batch_size=500):
+        """
+        Add a batch of direction links to the database.
+        """
+        valid_directions = {
+            "up", "down", "left", "right", "front", "back",
+            "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus"
+        }
+
+        async with self.async_session() as session:
+            for i in tqdm(range(0, len(updates), batch_size), desc="Updating direction links"):
+                batch = updates[i:i+batch_size]
+                async with session.begin():
+                    for from_id, to_id, direction in batch:
+                        if direction not in valid_directions:
+                            raise ValueError(f"Invalid direction: {direction}")
+
+                        stmt = (
+                            Node.__table__.update()
+                            .where(Node.id == from_id)
+                            .values({f"{direction}_node_id": to_id})
+                        )
+                        await session.execute(stmt)
+
+    async def get_direction_neighbors(self, node_id):
+        """
+        Get the neighbors of a node in the graph.
+        """
+        async with self.async_session() as session:
+            node = await session.get(Node, node_id)
+            if node:
+                return {
+                    "up": node.up_node_id, "down": node.down_node_id,
+                    "left": node.left_node_id, "right": node.right_node_id,
+                    "front": node.front_node_id, "back": node.back_node_id,
+                    "rx_plus": node.rx_plus_node_id, "rx_minus": node.rx_minus_node_id,
+                    "ry_plus": node.ry_plus_node_id, "ry_minus": node.ry_minus_node_id,
+                    "rz_plus": node.rz_plus_node_id, "rz_minus": node.rz_minus_node_id
+                }
             return {}
 
-    def get_node_id(self, position, rotation):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            SELECT id FROM nodes
-            WHERE x=? AND y=? AND z=? AND rx=? AND ry=? AND rz=?
-        ''', (*position, *rotation))
-        result = cursor.fetchone()
-        return result[0] if result else None
+    async def close(self):
+        """
+        Close the database connection.
+        """
+        await self.engine.dispose()
 
-    def get_node_position_by_id(self, node_id):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            SELECT id, x, y, z, rx, ry, rz, joint_angle, is_visited
-            FROM nodes
-            WHERE id = ?
-        ''', (node_id,))
-        result = cursor.fetchone()
+    async def get_node_id(self, base_position, base_rotation):
+        """
+        Get the node ID from the database based on the position and rotation of the Spot robot.
+        """
+        async with self.async_session() as session:
+            stmt = select(Node.id).where(
+                (Node.x == base_position[0]) &
+                (Node.y == base_position[1]) &
+                (Node.z == base_position[2]) &
+                (Node.rx == base_rotation[0]) &
+                (Node.ry == base_rotation[1]) &
+                (Node.rz == base_rotation[2])
+            )
+            result = await session.execute(stmt)
+            return result.scalar()
 
-        if result:
+    async def get_all_node_keys(self):
+        """
+        Get all node keys from the database.
+        """
+        async with self.async_session() as session:
+            stmt = select(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz)
+            result = await session.execute(stmt)
+            rows = result.fetchall()
             return {
-                "id": result[0],
-                "position": [result[1], result[2], result[3]],
-                "rotation": [result[4], result[5], result[6]],
-                "joint_angle": json.loads(result[7]),
-                "is_visited": bool(result[8]),             
+                (round(row.x, 3), round(row.y, 3), round(row.z, 3),
+                 round(row.rx, 3), round(row.ry, 3), round(row.rz, 3)): row.id
+                for row in rows
             }
-        else:
-            return None
-        
-    def close(self):
-        self.conn.close()
-
 
 class SpotNode:
+    """
+    A class representing a node in the Spot robot's graph.
+    """
     def __init__(self, base_position, base_rotation):
         self.base_position = base_position
         self.base_rotation = base_rotation
         self.joint_angle = [0] * 12
         self.is_visited = False
 
-# Example usage
-if __name__ == "__main__":
+async def main():
+    """
+    Main function to demonstrate the usage of the AsyncSpotGraphDB class.
+    """
+    db = AsyncSpotGraphDB("postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase")
+    await db.create_tables()
+
     node_a = SpotNode([0, 0, 0], [0, 0, 0])
     node_b = SpotNode([2, 0, 0], [0, 0, 0])
     node_c = SpotNode([1, 3, 2], [0, 0, 0])
 
-    db = SpotGraphDB("test.db")
+    await db.add_node(node_a)
+    await db.add_node(node_b)
+    await db.add_node(node_c)
 
-    from_id = db.add_node(node_a)
-    to_id = db.add_node(node_b)
-    node_c_id = db.add_node(node_c)
+    await db.update_direction_link(1, 2, "right")
+    await db.update_direction_link(1, 3, "front")
 
-    db.update_direction_link(from_id, to_id, "right")
-    db.update_direction_link(from_id, node_c_id, "front")  # 不會重複 right
-
-    neighbors = db.get_direction_neighbors(from_id)
+    neighbors = await db.get_direction_neighbors(1)
     print("Neighbors of node A:", neighbors)
 
-    # db.close()
+    node_list = [SpotNode([i, i, i], [i, i, 0]) for i in range(20000)]
+    start = time.perf_counter()
+    await db.bulk_add_nodes(node_list)
+    end = time.perf_counter()
 
+    print(f"Added 20000 nodes in {end - start:.2f} seconds")
+    print(f"{20000 / (end - start):.2f} node/s")
 
-    add_node_times = []
-    add_connection_times = []
-    i = 1
-    import time
-    start_time = time.perf_counter()
-    for _ in range(14000):
-        node = SpotNode([0, 0, 0], [0, 0, 0])
-        node.joint_angle = [999] * 12
-        t0 = time.perf_counter()
-        db.add_node(node)
-        t1 = time.perf_counter()
-        add_node_times.append(t1 - t0)
+    await db.close()
 
-
-        db.update_direction_link(i, i+1, "right")
-        t2 = time.perf_counter()
-        add_connection_times.append(t2 - t1)
-
-        db.get_direction_neighbors(i)
-        i+=1
-
-    end_time = time.perf_counter()
-
-    print(f"add_node time: {end_time - start_time:.2f} seconds")
-    
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(10, 5))
-    plt.plot(add_node_times, label='add_node time', alpha=0.7)
-    plt.plot(add_connection_times, label='add_connection time', alpha=0.7)
-    plt.xlabel("Processed Node Index")
-    plt.ylabel("Time (seconds)")
-    plt.title("Time Cost per add_node and add_connection")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-
-    db.close()
+if __name__ == "__main__":
+    asyncio.run(main())
