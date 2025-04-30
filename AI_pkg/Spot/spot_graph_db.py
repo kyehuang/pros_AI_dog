@@ -54,6 +54,14 @@ class AsyncSpotGraphDB:
     def __init__(self, db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"):
         self.engine = create_async_engine(db_url, echo=False)
         self.async_session = sessionmaker(self.engine, expire_on_commit=False, class_=AsyncSession)
+        self.direction_cache = {}
+        self.key_mapping = {
+            "up": "down", "down": "up", "left": "right", "right": "left",
+            "front": "back", "back": "front",
+            "rx_plus": "rx_minus", "rx_minus": "rx_plus",
+            "ry_plus": "ry_minus", "ry_minus": "ry_plus",
+            "rz_plus": "rz_minus", "rz_minus": "rz_plus"
+        }
 
     async def create_tables(self):
         """
@@ -61,6 +69,26 @@ class AsyncSpotGraphDB:
         """
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+    async def preload_all_neighbors(self):
+        async with self.async_session() as session:
+            stmt = select(
+                Node.id, Node.up_node_id, Node.down_node_id, Node.left_node_id, Node.right_node_id,
+                Node.front_node_id, Node.back_node_id,
+                Node.rx_plus_node_id, Node.rx_minus_node_id,
+                Node.ry_plus_node_id, Node.ry_minus_node_id,
+                Node.rz_plus_node_id, Node.rz_minus_node_id
+            )
+            result = await session.execute(stmt)
+            for row in result.fetchall():
+                self.direction_cache[row.id] = {
+                    "up": row.up_node_id, "down": row.down_node_id,
+                    "left": row.left_node_id, "right": row.right_node_id,
+                    "front": row.front_node_id, "back": row.back_node_id,
+                    "rx_plus": row.rx_plus_node_id, "rx_minus": row.rx_minus_node_id,
+                    "ry_plus": row.ry_plus_node_id, "ry_minus": row.ry_minus_node_id,
+                    "rz_plus": row.rz_plus_node_id, "rz_minus": row.rz_minus_node_id
+                }
 
     async def add_node(self, node):
         """
@@ -187,10 +215,13 @@ class AsyncSpotGraphDB:
         """
         Get the neighbors of a node in the graph.
         """
+        if node_id in self.direction_cache:
+            return self.direction_cache[node_id]
+
         async with self.async_session() as session:
             node = await session.get(Node, node_id)
             if node:
-                return {
+                neighbors = {
                     "up": node.up_node_id, "down": node.down_node_id,
                     "left": node.left_node_id, "right": node.right_node_id,
                     "front": node.front_node_id, "back": node.back_node_id,
@@ -198,6 +229,8 @@ class AsyncSpotGraphDB:
                     "ry_plus": node.ry_plus_node_id, "ry_minus": node.ry_minus_node_id,
                     "rz_plus": node.rz_plus_node_id, "rz_minus": node.rz_minus_node_id
                 }
+                self.direction_cache[node_id] = neighbors
+                return neighbors
             return {}
 
     async def close(self):

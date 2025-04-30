@@ -38,6 +38,7 @@ class SpotRouteFinder:
             "forward": key_to_id,
             "reverse": {v: k for k, v in key_to_id.items()}
         }
+        await self.db.preload_all_neighbors()
 
     def is_valid_pose(self, joint_angle):
         """
@@ -142,12 +143,17 @@ class SpotRouteFinder:
             print("Invalid origin or target point")
             await self.db.close()
             return []
-
+        start_time = time.time()
         path = await self.traverse(origin_id, target_id, target_point)
+        end_time = time.time()
+        print(f"Traversal time: {end_time - start_time:.5f} seconds")
         await self.db.close()
         return path
 
 def interpolate_angles(start, end, steps=10):
+    """
+    Interpolate between two sets of angles.
+    """
     start = np.array(start)
     end = np.array(end)
     return [((1 - t) * start + t * end).tolist() for t in np.linspace(0, 1, steps + 2)[1:-1]]  # exclude start & end
