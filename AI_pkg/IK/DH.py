@@ -126,7 +126,7 @@ if __name__ == "__main__":
     print(end_position[:3, 3])  # Extract the translation part of the transformation matrix
 
     spotLeg = SpotLeg(JointLengths, [0, 0, 0])
-    test_angle = spotLeg.calculate_ik(end_position[:3, 3], BaseTranslation)
+    test_angle = spotLeg.calculate_ik_left(end_position[:3, 3], BaseTranslation)
     print("IK Result:")
     print(test_angle)
 
