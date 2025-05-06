@@ -107,8 +107,10 @@ async def generate_spot_graph():
 
             joint_angle = spot_state_creater(spot_leg, new_pos, new_rot, base_translation)
             if any(abs(joint_angle[i]) > 30 for i in [0, 3, 6, 9]) or \
-               any(abs(joint_angle[i]) > 150 for i in [1, 4, 7, 10]) or \
+               any(abs(joint_angle[i]) > 165 for i in [1, 4, 7, 10]) or \
                np.isnan(joint_angle).any():
+                continue
+            if any(joint_angle[i] < joint_angle[i+1] for i in [1, 4, 7, 10]):
                 continue
 
             new_node = SpotNode(new_pos, new_rot, joint_angle=joint_angle)
