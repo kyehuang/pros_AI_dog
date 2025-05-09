@@ -3,6 +3,7 @@ import time
 import numpy as np
 import asyncio
 from collections import deque
+from typing import List
 
 from IK.spot_state import spot_state_creater
 from IK.DH import get_foot_position
@@ -15,7 +16,7 @@ class SpotRouteFinder:
     """
     A class to find a route for the Spot robot using a graph database.
     """
-    def __init__(self, db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"):
+    def __init__(self, db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/myd    atabase"):
         self.db_url = db_url
         self._config = {
             "joint_lengths": [0.0801, 0.1501, 0.1451],
@@ -25,11 +26,14 @@ class SpotRouteFinder:
         self.db = None
         self.spot_leg = None
         self.key_map = {}
+        self.setup_done = False
 
     async def setup(self):
         """
         Setup the database connection and create tables if they do not exist.
         """
+        start_time = time.time()
+        print("Connecting to database...")
         self.db = AsyncSpotGraphDB(self.db_url)
         await self.db.create_tables()
         self.spot_leg = SpotLeg(self._config["joint_lengths"], [0, 0, 0])
@@ -39,6 +43,9 @@ class SpotRouteFinder:
             "reverse": {v: k for k, v in key_to_id.items()}
         }
         await self.db.preload_all_neighbors()
+        print(f"Database connected in {time.time() - start_time:.2f} seconds")
+        print(f"Total nodes: {len(self.key_map['forward'])}")
+        print("Database setup complete.")
 
     def is_valid_pose(self, joint_angle):
         """
@@ -46,7 +53,7 @@ class SpotRouteFinder:
         """
         if np.isnan(joint_angle).any():
             return False
-        limits = [(0, 30), (1, 150), (3, 30), (4, 150), (6, 30), (7, 150), (9, 30), (10, 150)]
+        limits = [(0, 30), (1, 165), (3, 30), (4, 165), (6, 30), (7, 165), (9, 30), (10, 165)]
         return all(abs(joint_angle[i]) <= limit for i, limit in limits)
 
     def calculate_offset(self, origin, target):
@@ -76,21 +83,24 @@ class SpotRouteFinder:
                 direction.append(rot_dirs[i * 2])
             elif diff['rot'][i] < 0:
                 direction.append(rot_dirs[i * 2 + 1])
-
-        return direction
+        tilt_dirs = ['tilt_lf_rb_plus', 'tilt_lf_rb_minus', 'tilt_rf_lb_plus', 'tilt_rf_lb_minus']
+        # return direction
+        return rot_dirs + dirs + tilt_dirs
 
     def get_node_id(self, point):
         """
         Get the node ID from the database based on the position and rotation of the Spot robot.
         """
+        print("get_node_id", point)
         joint_angle = spot_state_creater(self.spot_leg,
                         point['pos'], point['rot'],
-                        self._config["base_translation"])
+                        self._config["base_translation"],
+                        point['tilt'])
         if not self.is_valid_pose(joint_angle):
             print("Invalid joint angle")
             return None
         unit = self._config["unit"]
-        key = tuple(round(round(x / unit) * unit, 3) for x in point['pos'] + point['rot'])
+        key = tuple(round(round(x / unit) * unit, 3) for x in point['pos'] + point['rot'] + point['tilt'])
         return self.key_map["forward"].get(key)
 
     def calculate_offset_point(self, from_key, to_point):
@@ -135,9 +145,12 @@ class SpotRouteFinder:
         """
         Find a route from the origin point to the target point.
         """
-        await self.setup()
+        if not self.setup_done:
+            await self.setup()
+            self.setup_done = True
         origin_id = self.get_node_id(origin_point)
         target_id = self.get_node_id(target_point)
+        print(f"Origin ID: {origin_id}, Target ID: {target_id}")
 
         if origin_id is None or target_id is None:
             print("Invalid origin or target point")
@@ -158,61 +171,88 @@ def interpolate_angles(start, end, steps=10):
     end = np.array(end)
     return [((1 - t) * start + t * end).tolist() for t in np.linspace(0, 1, steps + 2)[1:-1]]  # exclude start & end
 
+def ask_db_url() -> str:
+    """
+    Ask the user for the database URL.
+    """
+    if input("Use cloud database? [y/N]: ").strip().lower() == "y":
+        ip = input("SQL IP: ").strip()
+        return f"postgresql+asyncpg://myuser:mypassword@{ip}:5432/mydatabase"
+    return "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"
+
+def play_spot_route(path_ids: List[int], finder,
+                    steps_per_segment: int = 10, dt: float = 0.05) -> None:
+    """
+    Play the Spot route using the AI dog node.
+    """
+    rev_map = finder.key_map["reverse"]
+    base_tf = finder._config["base_translation"]
+    spot_leg = finder.spot_leg
+
+    dog_node, ros_thread = GymManager().init_ai_dog_node()
+    try:
+        # 逐段處理
+        for cur_id, nxt_id in zip(path_ids, path_ids[1:]):
+            # 取出兩端點的（pos, rot）
+            cur_pose, nxt_pose = rev_map[cur_id], rev_map[nxt_id]
+
+            # 計算對應關節角
+            start_angles = spot_state_creater(spot_leg, cur_pose[:3], cur_pose[3:6], base_tf, cur_pose[6:])
+            end_angles   = spot_state_creater(spot_leg, nxt_pose[:3], nxt_pose[3:6], base_tf, nxt_pose[6:])
+
+            # 發送插值
+            for ang in interpolate_angles(start_angles, end_angles, steps_per_segment):
+                dog_node.publish_spot_actions(ang)
+                time.sleep(dt)
+
+            # 再發送一次終點角度，確保到位
+            dog_node.publish_spot_actions(end_angles)
+            time.sleep(dt)
+    finally:
+        GymManager().shutdown_ai_dog_node(dog_node, ros_thread)
+        print("[INFO] AI_dog_node stopped.")
+
+
 async def main():
     """
     Main function to run the Spot route finder.
     """
-    origin_node = {'pos': [0.05, 0.05, 0.2], 'rot': [15, 5, 5]}
-    target_node = {'pos': [0, 0, 0.2], 'rot': [0, 0, 0]}
+    waypoints = [
+        {"pos": [0.00, 0.00, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},       # 起點
+        {"pos": [0.10, 0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},      # 第一目標
+        {"pos": [0.10, -0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第二目標
+        {"pos": [-0.10, -0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第三目標
+        {"pos": [-0.10, 0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第四目標
+        {"pos": [0.00, 0.00, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 終點
+    ]
 
-    target_node = {'pos': [0.05, 0.05, 0.2], 'rot': [15, 5, 5]}
-    origin_node = {'pos': [0, 0, 0.2], 'rot': [0, 0, 0]}
+    # Ask for database URL
+    db_url = ask_db_url()
+    # Initialize SpotRouteFinder
+    finder = SpotRouteFinder(db_url)
 
-    mode = input("If you want to use the database in the cloud [y/N]: ")
-    if mode == 'y' or mode == 'Y':
-        sql_ip = input("Please input sql ip: ")
-        db_url = "postgresql+asyncpg://myuser:mypassword@{}:5432/mydatabase".format(sql_ip)
-        finder = SpotRouteFinder(db_url)
+    full_path: list[int] = []
+
+    # (start, goal) 兩兩配對
+    for start, goal in zip(waypoints, waypoints[1:]):
+        print(f"Finding route from {start} to {goal}...")
+        segment = await finder.find_route(start, goal)
+        print(f"Segment from {start} to {goal}: {segment}")
+        if not segment:
+            raise RuntimeError(f"找不到 {start} → {goal} 的路徑")
+
+        # 第一段保留起點，其餘段落去掉「段首」避免重複
+        full_path.extend(segment if not full_path else segment[1:])
+
+    print("Combined path:", full_path)
+    print("Total nodes :", len(full_path))
+    input("Press Enter to start the dog movement...")
+    # Execute the dog movement
+    if full_path:
+        play_spot_route(full_path, finder)
     else:
-        db_url = "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"
-        finder = SpotRouteFinder(db_url)
+        print("No path found.")
 
-    paths = await finder.find_route(origin_node, target_node)
-    print("Traversal path:", paths)
-    print("Path length:", len(paths))
-
-    # Initialize AI_dog_node
-    dog_node, ros_thread = GymManager().init_ai_dog_node()
-
-    for i in range(len(paths) - 1):
-        # 取得當前與下一個角度
-        start_node = {"pos": finder.key_map["reverse"][paths[i]][:3],
-                      "rot": finder.key_map["reverse"][paths[i]][3:]}
-        end_node = {"pos": finder.key_map["reverse"][paths[i + 1]][:3],
-                     "rot": finder.key_map["reverse"][paths[i + 1]][3:]}
-
-        start_angles = spot_state_creater(finder.spot_leg,
-                        start_node['pos'], start_node['rot'],
-                        finder._config["base_translation"])
-        end_angles = spot_state_creater(finder.spot_leg,
-                        end_node['pos'], end_node['rot'],
-                        finder._config["base_translation"])
-
-        # 插值中間的角度
-        interpolated_steps = interpolate_angles(start_angles, end_angles, steps=10)
-
-        # 發送出每一段動作
-        for angles in interpolated_steps:
-            dog_node.publish_spot_actions(angles)
-            time.sleep(0.05)
-
-        # 最後也要執行一次 end_angles，確保到達終點
-        dog_node.publish_spot_actions(end_angles)
-        time.sleep(0.05)
-
-    # Shutdown AI_dog_node
-    GymManager().shutdown_ai_dog_node(dog_node, ros_thread)
-    print("[INFO] AI_dog_node has stopped.")
 
 if __name__ == "__main__":
     asyncio.run(main())
