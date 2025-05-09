@@ -1,0 +1,13 @@
+repos:
+  # ─────────────────────────────────────────────
+  # 本機自訂 hook：用 bash 進入 AI_pkg 跑 pytest
+  # ─────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: pytest-ai-pkg
+        name: Run pytest in AI_pkg
+        entry: bash -c 'cd AI_pkg && pytest tests/test_spot_state.py'
+        language: system        # 使用系統 Python；若用 poetry 請改 entry
+        pass_filenames: false   # 不傳檔名參數（避免 pytest 解析不到）
+        always_run: true        # 每次 commit 都跑
+

@@ -78,7 +78,7 @@ class AIDogNode(Node):
 
         # LF, RB : first joint
         actions_copy[0] = 90 + actions_copy[0]  # LF
-        actions_copy[6] = 90 + actions_copy[6]  # RB
+        actions_copy[6] = 90 - actions_copy[6]  # RB
         # LF, RB : second joint
         actions_copy[1] = actions_copy[1]       # LF
         actions_copy[7] = 180 - actions_copy[7] # RB
@@ -88,7 +88,7 @@ class AIDogNode(Node):
 
         # RF, LB : first joint
         actions_copy[3] = 90 + actions_copy[3]
-        actions_copy[9] = 90 + actions_copy[9]
+        actions_copy[9] = 90 - actions_copy[9]
         # RF, LB : second joint
         actions_copy[4]  = 180 -actions_copy[4]
         actions_copy[10] = actions_copy[10]
