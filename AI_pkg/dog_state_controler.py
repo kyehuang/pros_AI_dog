@@ -28,6 +28,7 @@ class DogStateController:
         # Initialize the base position and rotation
         self.base_position = [0, 0, 0.20]
         self.base_rotation = [0, 0, 0]
+        self.base_tilt = [0, 0]
         self.base_translation = [0.3740, 0.1670, 0]
 
         # update flag
@@ -50,6 +51,13 @@ class DogStateController:
             'h': [0, -1, 0], # spot robot rotates around y axis
             'u': [0, 0, 1],  # spot robot rotates around z axis
             'j': [0, 0, -1], # spot robot rotates around z axis
+        }
+
+        self.key_tilt_mapping = {
+            'i': [0, 0.005],  # spot robot tilts up
+            'k': [0, -0.005], # spot robot tilts down
+            'o': [0.005, 0],  # spot robot tilts left
+            'l': [-0.005, 0], # spot robot tilts right
         }
 
 
@@ -75,10 +83,14 @@ class DogStateController:
                         self.base_rotation[0] += self.key_rotation_mapping[chr(input_char)][0]
                         self.base_rotation[1] += self.key_rotation_mapping[chr(input_char)][1]
                         self.base_rotation[2] += self.key_rotation_mapping[chr(input_char)][2]
+                    elif chr(input_char) in self.key_tilt_mapping:
+                        self.base_tilt[0] += self.key_tilt_mapping[chr(input_char)][0]
+                        self.base_tilt[1] += self.key_tilt_mapping[chr(input_char)][1]
 
                     elif input_char == ord('z'):
                         self.base_position = [0, 0, 0.20]
                         self.base_rotation = [0, 0, 0]
+                        self.base_tilt = [0, 0]
                     self.__print_basic_info(input_char)
                     self.__publish_spot_state()
                 else:
@@ -119,6 +131,8 @@ class DogStateController:
         self.__stdscr.addstr(f"state: {self.base_position}")
         self.__stdscr.move(2, 0)
         self.__stdscr.addstr(f"rotation: {self.base_rotation}")
+        self.__stdscr.move(3, 0)
+        self.__stdscr.addstr(f"tilt: {self.base_tilt}")
 
     def __publish_spot_state(self):
         """
@@ -126,12 +140,13 @@ class DogStateController:
         """
         # Calculate the joint angles using inverse kinematics
         joint_angles = spot_state_creater(self.spot_leg, self.base_position,
-                                          self.base_rotation, self.base_translation)
+                                          self.base_rotation, self.base_translation,
+                                          self.base_tilt)
 
         # Publish the joint angles to the AI_dog_node
         self.__node.publish_spot_actions(joint_angles)
         # Print the joint angles
-        self.__stdscr.move(3, 0)
+        self.__stdscr.move(4, 0)
         self.__stdscr.addstr(f"joint angles: {joint_angles}")
 
 

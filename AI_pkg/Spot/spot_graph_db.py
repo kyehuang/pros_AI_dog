@@ -27,6 +27,9 @@ class Node(Base):
     rx = Column(Float, nullable=False)
     ry = Column(Float, nullable=False)
     rz = Column(Float, nullable=False)
+    tilt_lf_rb = Column(Float, nullable=False)
+    tilt_rf_lb = Column(Float, nullable=False)
+
     joint_angle = Column(Text)
     is_visited = Column(Integer)
 
@@ -42,9 +45,13 @@ class Node(Base):
     ry_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
     rz_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
     rz_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    tilt_lf_rb_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    tilt_lf_rb_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    tilt_rf_lb_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
+    tilt_rf_lb_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
 
     __table_args__ = (
-        UniqueConstraint('x', 'y', 'z', 'rx', 'ry', 'rz', name='uq_nodes_position_rotation'),
+        UniqueConstraint('x', 'y', 'z', 'rx', 'ry', 'rz', 'tilt_lf_rb', 'tilt_rf_lb', name='uq_nodes_position_rotation'),
     )
 
 class AsyncSpotGraphDB:
@@ -60,7 +67,9 @@ class AsyncSpotGraphDB:
             "front": "back", "back": "front",
             "rx_plus": "rx_minus", "rx_minus": "rx_plus",
             "ry_plus": "ry_minus", "ry_minus": "ry_plus",
-            "rz_plus": "rz_minus", "rz_minus": "rz_plus"
+            "rz_plus": "rz_minus", "rz_minus": "rz_plus",
+            "tilt_lf_rb_plus": "tilt_lf_rb_minus", "tilt_lf_rb_minus": "tilt_lf_rb_plus",
+            "tilt_rf_lb_plus": "tilt_rf_lb_minus", "tilt_rf_lb_minus": "tilt_rf_lb_plus"
         }
 
     async def create_tables(self):
@@ -77,7 +86,9 @@ class AsyncSpotGraphDB:
                 Node.front_node_id, Node.back_node_id,
                 Node.rx_plus_node_id, Node.rx_minus_node_id,
                 Node.ry_plus_node_id, Node.ry_minus_node_id,
-                Node.rz_plus_node_id, Node.rz_minus_node_id
+                Node.rz_plus_node_id, Node.rz_minus_node_id,
+                Node.tilt_lf_rb_plus_node_id, Node.tilt_lf_rb_minus_node_id,
+                Node.tilt_rf_lb_plus_node_id, Node.tilt_rf_lb_minus_node_id
             )
             result = await session.execute(stmt)
             for row in result.fetchall():
@@ -87,7 +98,9 @@ class AsyncSpotGraphDB:
                     "front": row.front_node_id, "back": row.back_node_id,
                     "rx_plus": row.rx_plus_node_id, "rx_minus": row.rx_minus_node_id,
                     "ry_plus": row.ry_plus_node_id, "ry_minus": row.ry_minus_node_id,
-                    "rz_plus": row.rz_plus_node_id, "rz_minus": row.rz_minus_node_id
+                    "rz_plus": row.rz_plus_node_id, "rz_minus": row.rz_minus_node_id,
+                    "tilt_lf_rb_plus": row.tilt_lf_rb_plus_node_id, "tilt_lf_rb_minus": row.tilt_lf_rb_minus_node_id,
+                    "tilt_rf_lb_plus": row.tilt_rf_lb_plus_node_id, "tilt_rf_lb_minus": row.tilt_rf_lb_minus_node_id
                 }
 
     async def add_node(self, node):
@@ -103,10 +116,12 @@ class AsyncSpotGraphDB:
                     rx=node.base_rotation[0],
                     ry=node.base_rotation[1],
                     rz=node.base_rotation[2],
+                    tilt_lf_rb=node.base_tilt[0],
+                    tilt_rf_lb=node.base_tilt[1],
                     joint_angle=json.dumps(node.joint_angle),
                     is_visited=int(node.is_visited)
                 ).on_conflict_do_nothing(
-                    index_elements=["x", "y", "z", "rx", "ry", "rz"]
+                    index_elements=["x", "y", "z", "rx", "ry", "rz", "tilt_lf_rb", "tilt_rf_lb"]
                 )
                 await session.execute(stmt)
             await session.commit()
@@ -128,13 +143,15 @@ class AsyncSpotGraphDB:
                         "rx": node.base_rotation[0],
                         "ry": node.base_rotation[1],
                         "rz": node.base_rotation[2],
+                        "tilt_lf_rb": node.base_tilt[0],
+                        "tilt_rf_lb": node.base_tilt[1],
                         "joint_angle": json.dumps(node.joint_angle),
                         "is_visited": int(node.is_visited)
                     }
                     for node in batch
                 ]).on_conflict_do_nothing(
-                    index_elements=["x", "y", "z", "rx", "ry", "rz"]
-                ).returning(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz)
+                    index_elements=["x", "y", "z", "rx", "ry", "rz", "tilt_lf_rb", "tilt_rf_lb"]
+                ).returning(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz, Node.tilt_lf_rb, Node.tilt_rf_lb)
 
                 result = await session.execute(stmt)
                 inserted = result.fetchall()
@@ -142,7 +159,8 @@ class AsyncSpotGraphDB:
                 for row in inserted:
                     key = (
                         round(row.x, 3), round(row.y, 3), round(row.z, 3),
-                        round(row.rx, 3), round(row.ry, 3), round(row.rz, 3)
+                        round(row.rx, 3), round(row.ry, 3), round(row.rz, 3),
+                        round(row.tilt_lf_rb, 3), round(row.tilt_rf_lb, 3)
                     )
                     key_to_id[key] = row.id
 
@@ -156,12 +174,15 @@ class AsyncSpotGraphDB:
                     round(node.base_position[2], 3),
                     round(node.base_rotation[0], 3),
                     round(node.base_rotation[1], 3),
-                    round(node.base_rotation[2], 3)
+                    round(node.base_rotation[2], 3),
+                    round(node.base_tilt[0], 3),
+                    round(node.base_tilt[1], 3)
                 )
                 if key not in key_to_id:
                     stmt = select(Node.id).where(
                         (Node.x == key[0]) & (Node.y == key[1]) & (Node.z == key[2]) &
-                        (Node.rx == key[3]) & (Node.ry == key[4]) & (Node.rz == key[5])
+                        (Node.rx == key[3]) & (Node.ry == key[4]) & (Node.rz == key[5]) &
+                        (Node.tilt_lf_rb == key[6]) & (Node.tilt_rf_lb == key[7])
                     )
                     result = await session.execute(stmt)
                     node_id = result.scalar()
@@ -175,7 +196,8 @@ class AsyncSpotGraphDB:
         """
         valid_directions = {
             "up", "down", "left", "right", "front", "back",
-            "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus"
+            "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus",
+            "tilt_lf_rb_plus", "tilt_lf_rb_minus", "tilt_rf_lb_plus", "tilt_rf_lb_minus"
         }
         if direction not in valid_directions:
             raise ValueError(f"Invalid direction: {direction}")
@@ -193,7 +215,8 @@ class AsyncSpotGraphDB:
         """
         valid_directions = {
             "up", "down", "left", "right", "front", "back",
-            "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus"
+            "rx_plus", "rx_minus", "ry_plus", "ry_minus", "rz_plus", "rz_minus",
+            "tilt_lf_rb_plus", "tilt_lf_rb_minus", "tilt_rf_lb_plus", "tilt_rf_lb_minus"
         }
 
         async with self.async_session() as session:
@@ -227,7 +250,9 @@ class AsyncSpotGraphDB:
                     "front": node.front_node_id, "back": node.back_node_id,
                     "rx_plus": node.rx_plus_node_id, "rx_minus": node.rx_minus_node_id,
                     "ry_plus": node.ry_plus_node_id, "ry_minus": node.ry_minus_node_id,
-                    "rz_plus": node.rz_plus_node_id, "rz_minus": node.rz_minus_node_id
+                    "rz_plus": node.rz_plus_node_id, "rz_minus": node.rz_minus_node_id,
+                    "tilt_lf_rb_plus": node.tilt_lf_rb_plus_node_id, "tilt_lf_rb_minus": node.tilt_lf_rb_minus_node_id,
+                    "tilt_rf_lb_plus": node.tilt_rf_lb_plus_node_id, "tilt_rf_lb_minus": node.tilt_rf_lb_minus_node_id
                 }
                 self.direction_cache[node_id] = neighbors
                 return neighbors
@@ -239,7 +264,7 @@ class AsyncSpotGraphDB:
         """
         await self.engine.dispose()
 
-    async def get_node_id(self, base_position, base_rotation):
+    async def get_node_id(self, base_position, base_rotation, base_tilt):
         """
         Get the node ID from the database based on the position and rotation of the Spot robot.
         """
@@ -250,7 +275,9 @@ class AsyncSpotGraphDB:
                 (Node.z == base_position[2]) &
                 (Node.rx == base_rotation[0]) &
                 (Node.ry == base_rotation[1]) &
-                (Node.rz == base_rotation[2])
+                (Node.rz == base_rotation[2]) &
+                (Node.tilt_lf_rb == base_tilt[0]) &
+                (Node.tilt_rf_lb == base_tilt[1])
             )
             result = await session.execute(stmt)
             return result.scalar()
@@ -260,12 +287,13 @@ class AsyncSpotGraphDB:
         Get all node keys from the database.
         """
         async with self.async_session() as session:
-            stmt = select(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz)
+            stmt = select(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz, Node.tilt_lf_rb, Node.tilt_rf_lb)
             result = await session.execute(stmt)
             rows = result.fetchall()
             return {
                 (round(row.x, 3), round(row.y, 3), round(row.z, 3),
-                 round(row.rx, 3), round(row.ry, 3), round(row.rz, 3)): row.id
+                 round(row.rx, 3), round(row.ry, 3), round(row.rz, 3),
+                 round(row.tilt_lf_rb, 3), round(row.tilt_rf_lb, 3)): row.id
                 for row in rows
             }
 
@@ -276,6 +304,7 @@ class SpotNode:
     def __init__(self, base_position, base_rotation):
         self.base_position = base_position
         self.base_rotation = base_rotation
+        self.base_tilt = [0, 0]
         self.joint_angle = [0] * 12
         self.is_visited = False
 
@@ -300,7 +329,7 @@ async def main():
     neighbors = await db.get_direction_neighbors(1)
     print("Neighbors of node A:", neighbors)
 
-    node_list = [SpotNode([i, i, i], [i, i, 0]) for i in range(20000)]
+    node_list = [SpotNode([i, i, i], [i, i, 0]) for i in range(5)]
     start = time.perf_counter()
     await db.bulk_add_nodes(node_list)
     end = time.perf_counter()

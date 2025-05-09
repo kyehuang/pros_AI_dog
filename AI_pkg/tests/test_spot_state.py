@@ -26,7 +26,8 @@ class TestDogStateController(unittest.TestCase):
         Test the spot_state_creater class with the center position
         """
         base_position = [0, 0, 2]
-        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0], self.base_translation)
+        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0],
+                                    self.base_translation, [0, 0])
         expected = [0.0, 150.0, 120.0] * 4
         self.assertEqual(result, expected)
 
@@ -50,7 +51,8 @@ class TestDogStateController(unittest.TestCase):
         Test the spot_state_creater class with the left position
         """
         base_position = [-1, 0, 2]
-        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0], self.base_translation)
+        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0],
+                                    self.base_translation, [0, 0])
         expected = [0.0, 119.45, 112.02] * 4  # ← 你需要自己填入預期結果
         print(result)
         self.assertEqual(result, expected)
@@ -60,7 +62,8 @@ class TestDogStateController(unittest.TestCase):
         Test the spot_state_creater class with the high position
         """
         base_position = [0, 0, 3]
-        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0], self.base_translation)
+        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0],
+                                    self.base_translation, [0, 0])
         expected = [0.0, 131.41, 82.82] * 4  # ← 預期角度
         self.assertEqual(result, expected)
 
@@ -69,7 +72,8 @@ class TestDogStateController(unittest.TestCase):
         Test the spot_state_creater class with the left position
         """
         base_position = [0, -1, 2]
-        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0], self.base_translation)
+        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0],
+                                    self.base_translation, [0, 0])
         expected = [24.3, 138.59, 97.18, 30.0, 154.34, 128.68,
                     30.0, 154.34, 128.68, 24.3, 138.59, 97.18]
         self.assertEqual(result, expected)
@@ -79,7 +83,8 @@ class TestDogStateController(unittest.TestCase):
         Test the spot_state_creater class with the right position
         """
         base_position = [0, 1, 2]
-        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0], self.base_translation)
+        result = spot_state_creater(self.spot_leg, base_position, [0, 0, 0],
+                                    self.base_translation, [0, 0])
         expected = [-30.0, 154.34, 128.68, -24.3, 138.59, 97.18,
                     -24.3, 138.59, 97.18, -30.0, 154.34, 128.68]
         self.assertEqual(result, expected)
@@ -91,7 +96,7 @@ class TestDogStateController(unittest.TestCase):
         base_position = [0, 0, 2]
         base_rotation = [1, 0, 0]
         result = spot_state_creater(self.spot_leg, base_position,
-                                    base_rotation, self.base_translation)
+                                    base_rotation, self.base_translation, [0, 0])
         expected = [0.01, 149.42, 118.84, -0.01, 150.57, 121.15,
                     -0.01, 150.57, 121.15, 0.01, 149.42, 118.84]
         self.assertEqual(result, expected)

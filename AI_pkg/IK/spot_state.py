@@ -65,7 +65,7 @@ def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
 
     return rot @ point
 
-def spot_state_creater(spot_leg, base_position, base_rotation, base_translation):
+def spot_state_creater(spot_leg, base_position, base_rotation, base_translation, base_tilt):
     """
     Calculate the motor angles for the Spot robot legs based on the base position,
     base rotation, and base translation.
@@ -87,6 +87,11 @@ def spot_state_creater(spot_leg, base_position, base_rotation, base_translation)
     # Calculate the shoulder positions
     lf_shoulder, rf_shoulder, rb_shoulder, lb_shoulder = calculate_spot_shoulder_positon(
         base_position, base_rotation, base_translation)
+
+    lf_shoulder[2] += base_tilt[0]
+    rf_shoulder[2] += base_tilt[1]
+    rb_shoulder[2] -= base_tilt[0]
+    lb_shoulder[2] -= base_tilt[1]
 
     lf_angles = spot_leg.calculate_ik_left(lf_end_position, lf_shoulder)
     rf_angles = spot_leg.calculate_ik_right(rf_end_position, rf_shoulder)
@@ -152,6 +157,7 @@ if __name__ == "__main__":
     SpotLeg = SpotLeg(JointLengths, [0.0, 0.0, 0.0])
     BasePosition = [0, 0, 2]
     BaseRotation = [1, 0, 0]
+    BaseTilt = [0, 0]
     # Calculate the end position of the leg
-    motor_angles = spot_state_creater(SpotLeg, BasePosition, BaseRotation, BaseTranslation)
+    motor_angles = spot_state_creater(SpotLeg, BasePosition, BaseRotation, BaseTranslation, BaseTilt)
     print("Motor angles for each leg:", motor_angles)
