@@ -93,12 +93,29 @@ def spot_state_creater(spot_leg, base_position, base_rotation, base_translation,
     rb_shoulder[2] -= base_tilt[0]
     lb_shoulder[2] -= base_tilt[1]
 
-    lf_angles = spot_leg.calculate_ik_left(lf_end_position, lf_shoulder)
-    rf_angles = spot_leg.calculate_ik_right(rf_end_position, rf_shoulder)
-    rb_angles = spot_leg.calculate_ik_right(rb_end_position, rb_shoulder)
-    lb_angles = spot_leg.calculate_ik_left(lb_end_position, lb_shoulder)
+    lf_target = delete_offset(lf_end_position, lf_shoulder)
+    rf_target = delete_offset(rf_end_position, rf_shoulder)
+    rb_target = delete_offset(rb_end_position, rb_shoulder)
+    lb_target = delete_offset(lb_end_position, lb_shoulder)
+
+    lf_target = rotate_point(lf_target, base_rotation, order='xyz', rotate_axes=False)
+    rf_target = rotate_point(rf_target, base_rotation, order='xyz', rotate_axes=False)
+    rb_target = rotate_point(rb_target, base_rotation, order='xyz', rotate_axes=False)
+    lb_target = rotate_point(lb_target, base_rotation, order='xyz', rotate_axes=False)
+
+
+    lf_angles = spot_leg.calculate_ik_left(lf_target, [0, 0, 0])
+    rf_angles = spot_leg.calculate_ik_right(rf_target, [0, 0, 0])
+    rb_angles = spot_leg.calculate_ik_right(rb_target, [0, 0, 0])
+    lb_angles = spot_leg.calculate_ik_left(lb_target, [0, 0, 0])
 
     return lf_angles + rf_angles + rb_angles +  lb_angles
+
+def delete_offset(target, base):
+    """
+    Delete the target position from the base position.
+    """
+    return [target[0] - base[0], target[1] - base[1], target[2] - base[2]]
 
 def calculate_spot_shoulder_positon(base_position, base_rotation, base_translation):
     """
