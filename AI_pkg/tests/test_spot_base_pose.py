@@ -18,7 +18,7 @@ class TestSpotBasePose(unittest.TestCase):
         cls.base_translation = [0.3740, 0.1670, 0]
         cls.spot_leg = SpotLeg(cls.joint_lengths, [0, 0, 0])
 
-    def check_base_pose(self, base_position, base_rotation, tol_percent=25.0, tol_abs=5):
+    def check_base_pose(self, base_position, base_rotation, tol_percent=5, tol_abs=1):
         """
         Test pose with mixed relative and absolute tolerance.
         - tol_percent: 相對誤差百分比 (%)
@@ -85,9 +85,23 @@ class TestSpotBasePose(unittest.TestCase):
     def test_rotation_10_0_10(self):
         self.check_base_pose([0, 0, 0.2], [10, 0, 10])
 
+    def test_rotation_0_10_10(self):
+        self.check_base_pose([0, 0, 0.2], [0, 10, 10])
+
+    def test_rotation_20_10_20(self):
+        self.check_base_pose([0, 0, 0.2], [20, 10, 20])
+
     def test_rotation_10_10_10(self):
         self.check_base_pose([0, 0, 0.2], [10, 10, 10])
 
+    def test_position_center_1_0_2_rotation_10_0_0(self):
+        self.check_base_pose([0.1, 0, 0.2], [0, 0, 10])
+    
+    def test_position_center_1_01_2_rotation_10_0_0(self):
+        self.check_base_pose([0.1, 0.01, 0.2], [0, 0, 10])
+    
+    def test_position_center_2_01_2_rotation_10_0_0(self):
+        self.check_base_pose([0.2, 0.01, 0.1], [0, 0, 10])
 
 
 if __name__ == "__main__":

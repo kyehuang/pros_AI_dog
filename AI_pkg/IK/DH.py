@@ -6,7 +6,8 @@ from scipy.spatial.transform import Rotation as R
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from IK.spot_leg import SpotLeg
-from IK.spot_state import calculate_spot_shoulder_positon
+from IK.spot_state import calculate_spot_shoulder_positon, spot_state_creater
+from IK.plane_to_euler import extract_euler_angles_from_plane
 
 def dh_matrix(theta, d, a, alpha):
     return np.array([
@@ -119,6 +120,7 @@ def compute_pose_from_rotation(feet_pts, shoulder_pts):
 
     # Step 1: 法向量
     normal_feet = compute_normal_vector(feet[0], feet[1], feet[3])
+
     # normal_feet = compute_normal_vector(feet[0], feet[3], feet[2])
 
     # Step 2: 旋轉矩陣
@@ -138,58 +140,70 @@ def compute_pose_from_rotation(feet_pts, shoulder_pts):
 
     return [round(roll, 3), round(pitch, 3), round(yaw_deg, 3)]
 
-def rotate_to_ground(four_points, base_points=None):
+def rotate_to_ground_and_align_x(four_points, base_points=None):
     """
-    將四個三維點構成的四邊形旋轉到 z = 0 的平面上。
-    如果提供 base_points，也會一起旋轉。
-    
-    Parameters:
-        four_points (array-like): 4 個 3D 點 (Numpy array)，構成一個四邊形。
-        base_points (array-like, optional): 可選的另一組 4 個 3D 點，也會被一起旋轉。
-    
+    將四個三維點構成的四邊形：
+      1. 平面旋轉到 z=0。
+      2. 第一條邊 (P1→P2) 對齊 x 軸。
+    同時旋轉 base_points (如有提供)。
+
     Returns:
-        tuple: (Rotated 四邊形點, Rotated base_points 或 None)
+        tuple: (旋轉後的四邊形點, 旋轉後的 base_points 或 None)
     """
+    def center_z(points, offset):
+        points[:, 2] -= offset
+        return points
+
     four_points = np.asarray(four_points)
     P1, P2, P3 = four_points[0], four_points[1], four_points[2]
 
-    
-    # 計算法向量並正規化
-    normal_vector = np.cross(P3 - P1, P2 - P1)
-    normal_vector /= np.linalg.norm(normal_vector)
-    print("normal_vector:", normal_vector)
-
-    # 目標法向量 [0, 0, 1]
+    # === 第一階段：對齊平面到 z=0 ===
+    normal = np.cross(P3 - P1, P2 - P1)
+    normal /= np.linalg.norm(normal)
     target_normal = np.array([0, 0, 1])
 
-    # 若已與 z 平面平行，則不需旋轉
-    if np.linalg.norm(np.cross(normal_vector, target_normal)) < 1e-6:
-        print("四邊形已經貼合 z = 0 平面")
-        return four_points, base_points
+    cross1 = np.cross(normal, target_normal)
+    if np.linalg.norm(cross1) < 1e-6:
+        rotation1 = R.identity()
+    else:
+        axis1 = cross1 / np.linalg.norm(cross1)
+        angle1 = np.arccos(np.clip(np.dot(normal, target_normal), -1.0, 1.0))
+        rotation1 = R.from_rotvec(axis1 * angle1)
 
-    # 計算旋轉軸與角度
-    rotation_axis = np.cross(normal_vector, target_normal)
-    rotation_axis /= np.linalg.norm(rotation_axis)
-    angle = np.arccos(np.clip(np.dot(normal_vector, target_normal), -1.0, 1.0))
+    rotated = rotation1.apply(four_points)
+    z_offset = rotated[0, 2] - 0
+    print("z_offset:", z_offset)
+    rotated = center_z(rotated, z_offset)
 
-    # 建立旋轉矩陣
-    rotation = R.from_rotvec(rotation_axis * angle)
+    # === 第二階段：讓邊對齊 x 軸 ===
+    edge = rotated[0] - rotated[3]
 
-    # 應用旋轉到四邊形
-    rotated_points = rotation.apply(four_points)
+    edge[2] = 0  # 只看 xy 平面方向
+    edge /= np.linalg.norm(edge)
 
-    # 將 z 軸平移至 0（根據旋轉後第一個點）
-    z_offset = rotated_points[0, 2]
-    rotated_points[:, 2] -= z_offset
+    target_dir = np.array([1, 0, 0])
+    cross2 = np.cross(edge, target_dir)
 
-    # 如果有 base_points 也做一樣處理
+    if np.linalg.norm(cross2) < 1e-6:
+        rotation2 = R.identity()
+    else:
+        angle2 = np.arccos(np.clip(np.dot(edge, target_dir), -1.0, 1.0))
+        axis2 = np.array([0, 0, 1])  # 第二階段僅繞 z 軸旋轉
+        sign = np.sign(np.cross(edge, target_dir)[2])
+        rotation2 = R.from_rotvec(axis2 * angle2 * sign)
+
+    rotated = rotation2.apply(rotated)
+
+    # 處理 base_points（如有）
     if base_points is not None:
         base_points = np.asarray(base_points)
-        rotated_base = rotation.apply(base_points)
-        rotated_base[:, 2] -= z_offset
-        return rotated_points, rotated_base
+        rotated_base = rotation1.apply(base_points)
+        rotated_base = center_z(rotated_base, z_offset)
+        rotated_base = rotation2.apply(rotated_base)
 
-    return rotated_points, None
+        return rotated, rotated_base
+
+    return rotated, None
 
 def is_on_same_plane(points):
     """
@@ -234,48 +248,26 @@ def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
     """
     Calculate the base pose of a quadruped robot given joint angles and lengths.
     """
-    # === Step 1: 計算四腳位置與肩膀位置 ===
+    # get the foot positions
     foot_pos = get_foot_position(joint_angles, joint_lengths, base_translations)
     feet = np.array([foot_pos["LF"], foot_pos["RF"], foot_pos["RB"], foot_pos["LB"]])
 
+    # get the shoulder positions
     shoulders = np.array(calculate_spot_shoulder_positon(
         [0, 0, 0], [0, 0, 0], base_translations
     ))
 
-    # === Step 2: 將剛體旋轉到地面平面（z=0） ===
-    rotated_feet, rotated_shoulders = rotate_to_ground(feet, shoulders)
+    # rotate the feet and shoulders to the ground plane
+    rotate_feet, rotate_shoulders = rotate_to_ground_and_align_x(feet, shoulders)
 
-    center_feet = np.mean(rotated_feet, axis=0)
-    center_shoulders = np.mean(rotated_shoulders, axis=0)
+    # get the position offset
+    center_feet = np.mean(rotate_feet, axis=0)
+    center_shoulders = np.mean(rotate_shoulders, axis=0)
     position_offset = center_shoulders - center_feet
     position = [round(x, 3) for x in position_offset.tolist()]
 
-    # === Step 3: 檢查肩膀是否共平面（資料異常檢查） ===
-    if not is_on_same_plane(shoulders):
-        print("Shoulders are not on the same plane")
-        return [0, 0, 0]
-
-    # === Step 4: 計算 Pitch / Roll 角度（法向量差） ===
-    normal_feet = compute_normal_vector(feet[0], feet[3], feet[2])
-    normal_shoulders = compute_normal_vector(shoulders[0], shoulders[3], shoulders[2])
-
-    euler_angles = vector_to_euler(normal_feet, normal_shoulders)
-    rotation = [round(x, 3) for x in euler_angles.tolist()]
-
-    # === Step 5: 計算 Yaw ===
-    # 從左後到左前的方向向量（XY 平面）
-    feet_vec = rotated_feet[3][:2] - rotated_feet[0][:2]  # LB - LF
-    shoulder_vec = rotated_shoulders[3][:2] -  rotated_shoulders[0][:2]  # LBS - LFB 
-
-    feet_vec /= np.linalg.norm(feet_vec)
-    shoulder_vec /= np.linalg.norm(shoulder_vec)
-
-    cos_theta = np.dot(feet_vec, shoulder_vec)
-    sin_theta = feet_vec[1]  # 即使方向只取 y 分量也可搭配 atan2
-    yaw_rad = np.arctan2(sin_theta, cos_theta)
-    yaw_deg = np.degrees(yaw_rad)
-
-    rotation[2] = round(yaw_deg, 3).tolist()
+    # get the rotation angles
+    rotation = extract_euler_angles_from_plane(rotate_shoulders)
 
     # === Debug 輸出 ===
     # print("Shoulder Positions:", shoulders)
@@ -326,3 +318,14 @@ if __name__ == "__main__":
     point = np.array([1, 10, 50])
     rotated_point = rotation_matrix @ point
     print("Rotated Point:", rotated_point)
+
+    baseRot = [8.88, 10, -4]
+    JointAngles = spot_state_creater(
+        spotLeg, [0, 0, 2], baseRot, BaseTranslation, [0, 0]
+    )
+
+    print(get_foot_position(JointAngles, JointLengths, BaseTranslation))
+    JointAngles = spot_state_creater(
+        spotLeg, [0, 0, 2], baseRot, BaseTranslation, [0, 0]
+    )
+    print(get_base_pose(JointAngles, JointLengths, BaseTranslation))
