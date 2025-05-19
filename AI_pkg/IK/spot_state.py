@@ -65,7 +65,8 @@ def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
 
     return rot @ point
 
-def spot_state_creater(spot_leg, base_position, base_rotation, base_translation, base_tilt):
+def spot_state_creater(spot_leg, base_position, base_rotation,
+                       base_translation, base_tilt, leg_end_position=None):
     """
     Calculate the motor angles for the Spot robot legs based on the base position,
     base rotation, and base translation.
@@ -84,14 +85,23 @@ def spot_state_creater(spot_leg, base_position, base_rotation, base_translation,
                         base_translation[1] / 2 + spot_leg.joint_lengths[0],
                         0]
 
+    if leg_end_position is not None:
+        lf_end_position = [lf_end_position[0] + leg_end_position[0][0],
+                            lf_end_position[1] + leg_end_position[0][1],
+                            lf_end_position[2] + leg_end_position[0][2]]
+        rf_end_position = [rf_end_position[0] + leg_end_position[1][0],
+                            rf_end_position[1] + leg_end_position[1][1],
+                            rf_end_position[2] + leg_end_position[1][2]]
+        rb_end_position = [rb_end_position[0] + leg_end_position[2][0],
+                            rb_end_position[1] + leg_end_position[2][1],
+                            rb_end_position[2] + leg_end_position[2][2]]
+        lb_end_position = [lb_end_position[0] + leg_end_position[3][0],
+                            lb_end_position[1] + leg_end_position[3][1],
+                            lb_end_position[2] + leg_end_position[3][2]]
+
     # Calculate the shoulder positions
     lf_shoulder, rf_shoulder, rb_shoulder, lb_shoulder = calculate_spot_shoulder_positon(
         base_position, base_rotation, base_translation, base_tilt)
-
-    # lf_shoulder[2] += base_tilt[0]
-    # rf_shoulder[2] += base_tilt[1]
-    # rb_shoulder[2] -= base_tilt[0]
-    # lb_shoulder[2] -= base_tilt[1]
 
     lf_target = delete_offset(lf_end_position, lf_shoulder)
     rf_target = delete_offset(rf_end_position, rf_shoulder)
