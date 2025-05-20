@@ -243,10 +243,13 @@ def vector_to_euler(normal_vector, base_vector=[0, 0, 1]):
     print("b",base_vector)
     return euler_angles
 
-
-def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
+def get_aligned_feet_and_shoulders(joint_angles, joint_lengths, base_translations):
     """
-    Calculate the base pose of a quadruped robot given joint angles and lengths.
+    calculate the aligned feet and shoulders of a quadruped robot.
+    :param joint_angles: List of joint angles in degrees
+    :param joint_lengths: List of joint lengths
+    :param base_translations: Base translation of the robot
+    :return: Tuple of aligned feet and shoulders
     """
     # get the foot positions
     foot_pos = get_foot_position(joint_angles, joint_lengths, base_translations)
@@ -259,6 +262,17 @@ def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
 
     # rotate the feet and shoulders to the ground plane
     rotate_feet, rotate_shoulders = rotate_to_ground_and_align_x(feet, shoulders)
+
+    return rotate_feet, rotate_shoulders
+
+def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
+    """
+    Calculate the base pose of a quadruped robot given joint angles and lengths.
+    """
+    # get the aligned feet and shoulders
+    rotate_feet, rotate_shoulders = get_aligned_feet_and_shoulders(
+        joint_angles, joint_lengths, base_translations
+    )
 
     # get the position offset
     center_feet = np.mean(rotate_feet, axis=0)
