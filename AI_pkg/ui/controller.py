@@ -5,13 +5,15 @@ import copy
 import time
 import numpy as np
 import json
+import os
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 from ui import Ui_RobotController
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
-from AI_pkg.IK.DH import spot_state_creater
-from AI_pkg.IK.spot_leg import SpotLeg
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from IK.DH import spot_state_creater
+from IK.spot_leg import SpotLeg
 
 
 class RobotControlApp(QMainWindow):
