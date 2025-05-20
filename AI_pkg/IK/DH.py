@@ -275,9 +275,19 @@ def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
     )
 
     # get the position offset
-    center_feet = np.mean(rotate_feet, axis=0)
     center_shoulders = np.mean(rotate_shoulders, axis=0)
-    position_offset = center_shoulders - center_feet
+    if type is None:
+        center_feet = np.mean(rotate_feet, axis=0)
+        position_offset = center_shoulders - center_feet
+    elif type in ["LF", "RB"]:
+        center_feet = (rotate_feet[1] + rotate_feet[3]) / 2
+        position_offset = center_shoulders - center_feet
+    elif type in ["RF", "LB"]:
+        center_feet = (rotate_feet[0] + rotate_feet[2]) / 2
+        position_offset = center_shoulders - center_feet
+    else:
+        raise ValueError("Invalid type. Must be 'LF', 'RF', 'RB', or 'LB'.")
+
     position = [round(x, 3) for x in position_offset.tolist()]
 
     # get the rotation angles
