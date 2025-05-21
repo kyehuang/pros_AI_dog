@@ -2,9 +2,13 @@ import numpy as np
 from math import cos, sin, radians, degrees
 import sys
 import os
+from typing import Tuple
+from scipy.spatial.transform import Rotation as R
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from IK.spot_leg import SpotLeg
+from IK.spot_state import calculate_spot_shoulder_positon, spot_state_creater, calculate_leg_end_positions
+from IK.plane_to_euler import extract_euler_angles_from_plane
 
 def dh_matrix(theta, d, a, alpha):
     return np.array([
@@ -111,6 +115,278 @@ def euler_to_rotation_matrix(roll, pitch, yaw):
     r = r_z @ r_y @ r_x
     return r
 
+def compute_pose_from_rotation(feet_pts, shoulder_pts):
+    feet = np.array(feet_pts)
+    shoulders = np.array(shoulder_pts)
+
+    # Step 1: 法向量
+    normal_feet = compute_normal_vector(feet[0], feet[1], feet[3])
+
+    # normal_feet = compute_normal_vector(feet[0], feet[3], feet[2])
+
+    # Step 2: 旋轉矩陣
+    target_normal = np.array([0, 0, 1])
+    rotation, _ = R.align_vectors([target_normal], [normal_feet])
+
+    # Step 3: 套用旋轉
+    shoulders_rot = rotation.apply(shoulders)
+
+    # Step 4: 計算 Yaw（XY 向量方向）
+    vec = -shoulders_rot[0][:2] + shoulders_rot[3][:2]  # LF - LB
+    yaw_rad = np.arctan2(vec[1], vec[0])
+    yaw_deg = np.degrees(yaw_rad)
+
+    # Step 5: 取 Roll、Pitch
+    roll, pitch, _ = rotation.as_euler('xyz', degrees=True)
+
+    return [round(roll, 3), round(pitch, 3), round(yaw_deg, 3)]
+
+def rotate_to_ground_and_align_x(four_points, base_points=None):
+    """
+    將四個三維點構成的四邊形：
+      1. 平面旋轉到 z=0。
+      2. 第一條邊 (P1→P2) 對齊 x 軸。
+    同時旋轉 base_points (如有提供)。
+
+    Returns:
+        tuple: (旋轉後的四邊形點, 旋轉後的 base_points 或 None)
+    """
+    def center_z(points, offset):
+        points[:, 2] -= offset
+        return points
+
+    four_points = np.asarray(four_points)
+    P1, P2, P3 = four_points[0], four_points[1], four_points[2]
+
+    # === 第一階段：對齊平面到 z=0 ===
+    normal = np.cross(P3 - P1, P2 - P1)
+    normal /= np.linalg.norm(normal)
+    target_normal = np.array([0, 0, 1])
+
+    cross1 = np.cross(normal, target_normal)
+    if np.linalg.norm(cross1) < 1e-6:
+        rotation1 = R.identity()
+    else:
+        axis1 = cross1 / np.linalg.norm(cross1)
+        angle1 = np.arccos(np.clip(np.dot(normal, target_normal), -1.0, 1.0))
+        rotation1 = R.from_rotvec(axis1 * angle1)
+
+    rotated = rotation1.apply(four_points)
+    z_offset = rotated[0, 2] - 0
+    # print("z_offset:", z_offset)
+    rotated = center_z(rotated, z_offset)
+
+    # === 第二階段：讓邊對齊 x 軸 ===
+    edge = rotated[0] - rotated[3]
+
+    edge[2] = 0  # 只看 xy 平面方向
+    edge /= np.linalg.norm(edge)
+
+    target_dir = np.array([1, 0, 0])
+    cross2 = np.cross(edge, target_dir)
+
+    if np.linalg.norm(cross2) < 1e-6:
+        rotation2 = R.identity()
+    else:
+        angle2 = np.arccos(np.clip(np.dot(edge, target_dir), -1.0, 1.0))
+        axis2 = np.array([0, 0, 1])  # 第二階段僅繞 z 軸旋轉
+        sign = np.sign(np.cross(edge, target_dir)[2])
+        rotation2 = R.from_rotvec(axis2 * angle2 * sign)
+
+    rotated = rotation2.apply(rotated)
+
+    # 處理 base_points（如有）
+    if base_points is not None:
+        base_points = np.asarray(base_points)
+        rotated_base = rotation1.apply(base_points)
+        rotated_base = center_z(rotated_base, z_offset)
+        rotated_base = rotation2.apply(rotated_base)
+
+        return rotated, rotated_base
+
+    return rotated, None
+
+def is_on_same_plane(points):
+    """
+    Check if four points are on the same plane.
+    :param points: List of four 3D points
+    :return: True if points are coplanar, False otherwise
+    """
+    v1 = points[1] - points[0]
+    v2 = points[2] - points[0]
+    v3 = points[3] - points[0]
+
+    # calculate the normal vector of the plane formed by the first three points
+    normal_vector = np.cross(v1, v2)
+
+    # check if the fourth point is coplanar with the first three points
+    is_coplanar = np.isclose(np.dot(normal_vector, v3), 0)
+
+    return is_coplanar
+
+def compute_normal_vector(p1, p2, p3):
+    """
+    計算三個點構成平面的法向量並正規化
+    """
+    v1 = np.array(p2) - np.array(p1)
+    v2 = np.array(p3) - np.array(p1)
+    normal = np.cross(v1, v2)
+    normal = normal / np.linalg.norm(normal)
+    return normal
+
+def vector_to_euler(normal_vector, base_vector=[0, 0, 1]):
+    """
+    計算將法向量轉到 [0, 0, 1] 的旋轉角度 (ROS: XYZ)
+    """
+    # 計算旋轉矩陣
+    rotation = R.align_vectors([base_vector], [normal_vector])[0]
+    euler_angles = rotation.as_euler('xyz', degrees=True)
+    print("b",base_vector)
+    return euler_angles
+
+def get_aligned_feet_and_shoulders(joint_angles, joint_lengths, base_translations):
+    """
+    calculate the aligned feet and shoulders of a quadruped robot.
+    :param joint_angles: List of joint angles in degrees
+    :param joint_lengths: List of joint lengths
+    :param base_translations: Base translation of the robot
+    :return: Tuple of aligned feet and shoulders
+    """
+    # get the foot positions
+    foot_pos = get_foot_position(joint_angles, joint_lengths, base_translations)
+    feet = np.array([foot_pos["LF"], foot_pos["RF"], foot_pos["RB"], foot_pos["LB"]])
+
+    # get the shoulder positions
+    shoulders = np.array(calculate_spot_shoulder_positon(
+        [0, 0, 0], [0, 0, 0], base_translations
+    ))
+
+    # rotate the feet and shoulders to the ground plane
+    rotate_feet, rotate_shoulders = rotate_to_ground_and_align_x(feet, shoulders)
+
+    return rotate_feet, rotate_shoulders
+
+def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
+    """
+    Calculate the base pose of a quadruped robot given joint angles and lengths.
+    """
+    # get the aligned feet and shoulders
+    rotate_feet, rotate_shoulders = get_aligned_feet_and_shoulders(
+        joint_angles, joint_lengths, base_translations
+    )
+
+    # get the position offset
+    center_shoulders = np.mean(rotate_shoulders, axis=0)
+    if type is None:
+        center_feet = np.mean(rotate_feet, axis=0)
+        position_offset = center_shoulders - center_feet
+    elif type in ["LF", "RB"]:
+        center_feet = (rotate_feet[1] + rotate_feet[3]) / 2
+        position_offset = center_shoulders - center_feet
+    elif type in ["RF", "LB"]:
+        center_feet = (rotate_feet[0] + rotate_feet[2]) / 2
+        position_offset = center_shoulders - center_feet
+    else:
+        raise ValueError("Invalid type. Must be 'LF', 'RF', 'RB', or 'LB'.")
+
+    position = [round(x, 3) for x in position_offset.tolist()]
+
+    # get the rotation angles
+    rotation = extract_euler_angles_from_plane(rotate_shoulders)
+
+    # === Debug 輸出 ===
+    # print("Shoulder Positions:", shoulders)
+    # print("New Feet Positions:", rotated_feet)
+    # print("New Shoulder Positions:", rotated_shoulders)
+    # print("Center Feet:", center_feet)
+    # print("Center Shoulders:", center_shoulders)
+    # print("Position Offset:", position)
+    # print("Euler Angles (deg):", rotation)
+
+    return position, rotation
+
+def is_center_mass_in_trangle(joint_angles, joint_lengths, base_translations, type=None):
+    """
+    判斷重心是否在三角形內部
+    Args:
+        joint_angles (list): 關節角度
+        joint_lengths (list): 關節長度
+        base_translations (list): 基座平移
+        type (str): 腳的類型（"LF"、"RF"、"RB"、"LB"）
+    Returns:
+        bool: True 表示重心在三角形內部，False 表示不在
+    """
+    base_pose, base_rot = get_base_pose(joint_angles, joint_lengths, base_translations, type=type)
+
+    # get the foot positions
+    foot_pos, shoulder_pos = get_aligned_feet_and_shoulders(
+                                joint_angles, joint_lengths, base_translations)
+
+    triangle = []
+    if type == "LF":
+        triangle = np.array([foot_pos[1], foot_pos[2], foot_pos[3]])
+    elif type == "RB":
+        triangle = np.array([foot_pos[0], foot_pos[1], foot_pos[3]])
+
+    return is_point_in_triangle_3d(base_pose, triangle)
+
+def project_point_onto_triangle_plane(centroid: np.ndarray, triangle: np.ndarray
+                                      )-> Tuple[np.ndarray, np.ndarray]:
+    """
+    將點投影到由三角形定義的平面上
+
+    Args:
+        point (np.ndarray): 3D 空間中的點，shape (3,)
+        triangle (np.ndarray): 三角形的三個頂點，shape (3, 3)
+
+    Returns:
+        projected_point (np.ndarray): 投影後的點，shape (3,)
+        normal (np.ndarray): 三角形的法向量（單位向量）
+    """
+    edge1 = triangle[1] - triangle[0]
+    edge2 = triangle[2] - triangle[0]
+    normal = np.cross(edge1, edge2)
+    normal /= np.linalg.norm(normal)
+
+    vec_to_plane = centroid - triangle[0]
+    distance = np.dot(vec_to_plane, normal)
+    projected_point = centroid - distance * normal
+
+    return projected_point, normal
+
+def is_point_in_triangle_3d(centroid: np.ndarray, triangle: np.ndarray) -> bool:
+    """
+    判斷一個 3D 點在投影到三角形平面後是否落在三角形內部
+
+    Args:
+        point (np.ndarray): 要檢查的 3D 點，shape (3,)
+        triangle (np.ndarray): 三角形的三個頂點，shape (3, 3)
+
+    Returns:
+        bool: True 表示在三角形內，False 表示不在
+    """
+    projected, _ = project_point_onto_triangle_plane(centroid, triangle)
+
+    # 重心座標法
+    v0 = triangle[2] - triangle[0]
+    v1 = triangle[1] - triangle[0]
+    v2 = projected - triangle[0]
+
+    dot00 = np.dot(v0, v0)
+    dot01 = np.dot(v0, v1)
+    dot02 = np.dot(v0, v2)
+    dot11 = np.dot(v1, v1)
+    dot12 = np.dot(v1, v2)
+
+    denom = dot00 * dot11 - dot01 * dot01
+    if denom == 0:
+        return False  # 三角形退化
+
+    u = (dot11 * dot02 - dot01 * dot12) / denom
+    v = (dot00 * dot12 - dot01 * dot02) / denom
+
+    return (u >= 0) and (v >= 0) and (u + v <= 1)
+
 if __name__ == "__main__":
     # Example usage: calculate the end position of a robot arm
     BaseTranslation = [3, 2, 0]
@@ -149,3 +425,34 @@ if __name__ == "__main__":
     point = np.array([1, 10, 50])
     rotated_point = rotation_matrix @ point
     print("Rotated Point:", rotated_point)
+
+    baseRot = [8.88, 10, -4]
+    JointAngles = spot_state_creater(
+        spotLeg, [0, 0, 2], baseRot, BaseTranslation, [0, 0]
+    )
+
+    print(get_foot_position(JointAngles, JointLengths, BaseTranslation))
+
+    basePos = [0, 0, 2]
+    baseRot = [10, 10, -4]
+    JointAngles = spot_state_creater(
+        spotLeg, basePos, baseRot, BaseTranslation, [0, 0]
+    )
+    positon, rotation = get_base_pose(
+        JointAngles, JointLengths, BaseTranslation
+    )
+    print("Base Position:", positon)
+    print("Base Rotation:", rotation)
+
+    basePos = [0.1, 0, 0.25]
+    baseRot = [0, 0, 5]
+    basetilt = [-5, 0]
+    JointAngles = spot_state_creater(
+        spotLeg, basePos, baseRot, BaseTranslation, basetilt
+    )
+    print("Joint Angles:", JointAngles)
+    JointAngles = [-1.89, 136.1, 54.85, 358.38, 124.63, 23.09, 365.95, 139.29, 49.53, 5.91, 136.57, 56.14]
+    is_intri = is_center_mass_in_trangle(
+        JointAngles, JointLengths, BaseTranslation, type="LF"
+    )
+    print("Is in triangle:", is_intri)

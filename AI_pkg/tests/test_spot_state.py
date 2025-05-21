@@ -97,6 +97,24 @@ class TestDogStateController(unittest.TestCase):
         base_rotation = [1, 0, 0]
         result = spot_state_creater(self.spot_leg, base_position,
                                     base_rotation, self.base_translation, [0, 0])
-        expected = [0.01, 149.42, 118.84, -0.01, 150.57, 121.15,
-                    -0.01, 150.57, 121.15, 0.01, 149.42, 118.84]
+        expected = [-0.99, 149.42, 118.84, -1.01, 150.57, 121.15,
+                    -1.01, 150.57, 121.15, -0.99, 149.42, 118.84]
+        self.assertEqual(result, expected)
+
+    def test_lf_end_position(self):
+        """
+        Test the spot_state_creater class with the left front leg end position
+        """
+        base_position = [0, 0, 2]
+        base_rotation = [0, 0, 0]
+        base_tilt = [0, 0]
+        leg_end_position = [[0, 0, -0.828], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        result = spot_state_creater(self.spot_leg, base_position, base_rotation,
+                                    self.base_translation, base_tilt, leg_end_position)
+        expected = [0.0, 150.0, 120.0] * 4
+
+        expected[0] = 0.0
+        expected[1] = 135.01
+        expected[2] = 90.02
+
         self.assertEqual(result, expected)

@@ -65,42 +65,89 @@ def rotate_point(point, angles_deg, order='xyz', rotate_axes=False):
 
     return rot @ point
 
-def spot_state_creater(spot_leg, base_position, base_rotation, base_translation, base_tilt):
+def calculate_leg_end_positions(base_translation, joint_lengths, leg_end_offset=None):
+    """
+    Calculate the default or offset leg end positions.
+    """
+    # calculate the leg end positions
+    lf = [ base_translation[0] / 2,
+           base_translation[1] / 2 + joint_lengths[0],
+           0]
+    rf = [ base_translation[0] / 2,
+          -base_translation[1] / 2 - joint_lengths[0],
+           0]
+    rb = [-base_translation[0] / 2,
+          -base_translation[1] / 2 - joint_lengths[0],
+           0]
+    lb = [-base_translation[0] / 2,
+           base_translation[1] / 2 + joint_lengths[0],
+           0]
+
+    # apply the leg end offset if provided
+    if leg_end_offset is not None:
+        lf = [lf[i] + leg_end_offset[0][i] for i in range(3)]
+        rf = [rf[i] + leg_end_offset[1][i] for i in range(3)]
+        rb = [rb[i] + leg_end_offset[2][i] for i in range(3)]
+        lb = [lb[i] + leg_end_offset[3][i] for i in range(3)]
+
+    return lf, rf, rb, lb
+
+def spot_state_creater(spot_leg, base_position, base_rotation,
+                       base_translation, base_tilt, leg_end_position=None):
     """
     Calculate the motor angles for the Spot robot legs based on the base position,
     base rotation, and base translation.
     """
-    # Define the leg end position of the Spot robot
-    lf_end_position = [ base_translation[0] / 2,
-                        base_translation[1] / 2 + spot_leg.joint_lengths[0],
-                        0]
-    rf_end_position = [ base_translation[0] / 2,
-                       -base_translation[1] / 2 - spot_leg.joint_lengths[0],
-                        0]
-    rb_end_position = [-base_translation[0] / 2,
-                       -base_translation[1] / 2 - spot_leg.joint_lengths[0],
-                        0]
-    lb_end_position = [-base_translation[0] / 2,
-                        base_translation[1] / 2 + spot_leg.joint_lengths[0],
-                        0]
+    # Calculate the leg end positions
+    lf_end_position, rf_end_position, rb_end_position, lb_end_position =calculate_leg_end_positions(
+        base_translation, spot_leg.joint_lengths, leg_end_position)
 
     # Calculate the shoulder positions
     lf_shoulder, rf_shoulder, rb_shoulder, lb_shoulder = calculate_spot_shoulder_positon(
-        base_position, base_rotation, base_translation)
+        base_position, base_rotation, base_translation, base_tilt)
 
-    lf_shoulder[2] += base_tilt[0]
-    rf_shoulder[2] += base_tilt[1]
-    rb_shoulder[2] -= base_tilt[0]
-    lb_shoulder[2] -= base_tilt[1]
+    lf_target = delete_offset(lf_end_position, lf_shoulder)
+    rf_target = delete_offset(rf_end_position, rf_shoulder)
+    rb_target = delete_offset(rb_end_position, rb_shoulder)
+    lb_target = delete_offset(lb_end_position, lb_shoulder)
 
-    lf_angles = spot_leg.calculate_ik_left(lf_end_position, lf_shoulder)
-    rf_angles = spot_leg.calculate_ik_right(rf_end_position, rf_shoulder)
-    rb_angles = spot_leg.calculate_ik_right(rb_end_position, rb_shoulder)
-    lb_angles = spot_leg.calculate_ik_left(lb_end_position, lb_shoulder)
+    lf_target = rotate_point(lf_target, base_rotation, order='xyz', rotate_axes=False)
+    rf_target = rotate_point(rf_target, base_rotation, order='xyz', rotate_axes=False)
+    rb_target = rotate_point(rb_target, base_rotation, order='xyz', rotate_axes=False)
+    lb_target = rotate_point(lb_target, base_rotation, order='xyz', rotate_axes=False)
+
+
+    lf_angles = spot_leg.calculate_ik_left(lf_target, [0, 0, 0])
+    rf_angles = spot_leg.calculate_ik_right(rf_target, [0, 0, 0])
+    rb_angles = spot_leg.calculate_ik_right(rb_target, [0, 0, 0])
+    lb_angles = spot_leg.calculate_ik_left(lb_target, [0, 0, 0])
 
     return lf_angles + rf_angles + rb_angles +  lb_angles
 
-def calculate_spot_shoulder_positon(base_position, base_rotation, base_translation):
+def delete_offset(target, base):
+    """
+    Delete the target position from the base position.
+    """
+    return [target[0] - base[0], target[1] - base[1], target[2] - base[2]]
+
+def rotate_around_axis(v, axis, angle_degrees):
+    """
+    將向量 v 繞 axis 旋轉 angle_degrees
+    """
+    angle_rad = np.radians(angle_degrees)
+    axis = axis / np.linalg.norm(axis)  # 單位化旋轉軸
+    cos_theta = np.cos(angle_rad)
+    sin_theta = np.sin(angle_rad)
+    cross = np.cross(axis, v)
+    dot = np.dot(axis, v)
+    rotated_vector = (
+        v * cos_theta +
+        cross * sin_theta +
+        axis * dot * (1 - cos_theta)
+    )
+    return rotated_vector
+
+def calculate_spot_shoulder_positon(base_position, base_rotation, base_translation, base_tilt=None):
     """
     Calculate the shoulder positions of the Spot robot legs based on the base position,
     base rotation, and base translation.
@@ -118,6 +165,25 @@ def calculate_spot_shoulder_positon(base_position, base_rotation, base_translati
     lb_offset = [ -base_translation[0] / 2,
                            base_translation[1] / 2,
                            0]
+
+    if base_tilt is not None:
+        lf_rotated_vector = rotate_around_axis(
+                                np.array(lf_offset), np.array(rf_offset), base_tilt[0])
+        rb_rotated_vector = rotate_around_axis(
+                                np.array(rb_offset), np.array(rf_offset), base_tilt[0])
+
+        rf_rotated_vector = rotate_around_axis(
+                                np.array(rf_offset), np.array(lf_rotated_vector), base_tilt[1])
+        lb_rotated_vector = rotate_around_axis(np.array(lb_offset),
+                                np.array(lf_rotated_vector), base_tilt[1])
+
+        lf_offset = lf_rotated_vector
+        rb_offset = rb_rotated_vector
+
+        rf_offset = rf_rotated_vector
+        lb_offset = lb_rotated_vector
+
+
     lf_shoulder_offset = rotate_point(lf_offset, base_rotation, order='xyz', rotate_axes=True)
     rf_shoulder_offset = rotate_point(rf_offset, base_rotation, order='xyz', rotate_axes=True)
     rb_shoulder_offset = rotate_point(rb_offset, base_rotation, order='xyz', rotate_axes=True)

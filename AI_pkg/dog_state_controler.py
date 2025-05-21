@@ -54,10 +54,10 @@ class DogStateController:
         }
 
         self.key_tilt_mapping = {
-            'i': [0, 0.005],  # spot robot tilts up
-            'k': [0, -0.005], # spot robot tilts down
-            'o': [0.005, 0],  # spot robot tilts left
-            'l': [-0.005, 0], # spot robot tilts right
+            'i': [0, 1],  # spot robot tilts up
+            'k': [0, -1], # spot robot tilts down
+            'o': [1, 0],  # spot robot tilts left
+            'l': [-1, 0], # spot robot tilts right
         }
 
 

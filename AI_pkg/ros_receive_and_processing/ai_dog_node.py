@@ -4,6 +4,7 @@ following topics:
 """
 import threading
 import copy
+
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Bool
 from trajectory_msgs.msg import JointTrajectoryPoint
@@ -74,6 +75,20 @@ class AIDogNode(Node):
         if not all(isinstance(action, float) for action in spot_actions):
             raise ValueError("All spot actions must be floats.")
 
+        action = self.data_arrange(spot_actions)
+
+        msg = JointTrajectoryPoint()
+        msg.positions = action
+        self.__publisher_spot_actions.publish(msg)
+
+    def data_arrange(self, spot_actions: list) -> list:
+        """
+        Arrange the data for spot actions
+        Args:
+            spot_actions (list): List of spot actions
+        Returns:
+            list: List of arranged spot actions
+        """
         actions_copy = copy.deepcopy(spot_actions)
 
         # LF, RB : first joint
@@ -99,9 +114,7 @@ class AIDogNode(Node):
         # turn deg to rad
         actions_copy = [self.__deg_to_rad(action) for action in actions_copy]
 
-        msg = JointTrajectoryPoint()
-        msg.positions = actions_copy
-        self.__publisher_spot_actions.publish(msg)
+        return actions_copy
 
     ## Callback function for subscriber
     def __listener_callback_spot_states(self, msg: Float32MultiArray) -> None:

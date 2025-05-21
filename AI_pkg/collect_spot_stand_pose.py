@@ -1,11 +1,16 @@
+"""
+This script generates a graph of nodes representing the possible 
+positions and orientations of the Spot robot.
+Each node contains information about its position, rotation, 
+joint angles, and connections to neighboring nodes.
+"""
 import asyncio
-import json
 import time
-from tqdm import tqdm
 from collections import deque
+from tqdm import tqdm
+
 import numpy as np
 from IK.spot_state import spot_state_creater
-from IK.DH import get_foot_position
 from IK.spot_leg import SpotLeg
 
 from Spot.spot_graph_db import AsyncSpotGraphDB
@@ -16,7 +21,9 @@ class SpotNode:
     Each node contains information about its position, rotation, joint angles,
     and connections to neighboring nodes.
     """
-    def __init__(self, base_position, base_rotation, base_tilt=None, is_visited=False, joint_angle=None):
+    def __init__(
+            self, base_position, base_rotation,
+            base_tilt=None, is_visited=False, joint_angle=None):
         self.base_position = base_position
         self.base_rotation = base_rotation
         if base_tilt is None:
@@ -69,14 +76,21 @@ key_mapping = {
     "rx_plus": [0, 0, 0, 5, 0, 0, 0, 0], "rx_minus": [0, 0, 0, -5, 0, 0, 0, 0],
     "ry_plus": [0, 0, 0, 0, 5, 0, 0, 0], "ry_minus": [0, 0, 0, 0, -5, 0, 0, 0],
     "rz_plus": [0, 0, 0, 0, 0, 5, 0, 0], "rz_minus": [0, 0, 0, 0, 0, -5, 0, 0],
-    "tilt_lf_rb_plus": [0, 0, 0, 0, 0, 0, 0.1, 0], "tilt_lf_rb_minus": [0, 0, 0, 0, 0, 0, -0.1, 0],
-    "tilt_rf_lb_plus": [0, 0, 0, 0, 0, 0, 0, 0.1], "tilt_rf_lb_minus": [0, 0, 0, 0, 0, 0, 0, -0.1],
-    # "tilt_lf_rb_plus": [0, 0, 0, 0, 0, 0, 0.05, 0], "tilt_lf_rb_minus": [0, 0, 0, 0, 0, 0, -0.05, 0],
-    # "tilt_rf_lb_plus": [0, 0, 0, 0, 0, 0, 0, 0.05], "tilt_rf_lb_minus": [0, 0, 0, 0, 0, 0, 0, -0.05]
+    "tilt_lf_rb_plus": [0, 0, 0, 0, 0, 0, 0.1, 0],
+    "tilt_lf_rb_minus": [0, 0, 0, 0, 0, 0, -0.1, 0],
+    "tilt_rf_lb_plus": [0, 0, 0, 0, 0, 0, 0, 0.1],
+    "tilt_rf_lb_minus": [0, 0, 0, 0, 0, 0, 0, -0.1],
 }
 
-reversed_key_mapping = {k: k.replace("plus", "minus") if "plus" in k else k.replace("minus", "plus") for k in key_mapping}
-reversed_key_mapping.update({"up": "down", "down": "up", "left": "right", "right": "left", "front": "back", "back": "front"})
+reversed_key_mapping = {
+    k: k.replace("plus", "minus") if "plus" in k else k.replace("minus", "plus")
+    for k in key_mapping
+}
+reversed_key_mapping.update({
+    "up": "down", "down": "up",
+    "left": "right", "right": "left",
+    "front": "back", "back": "front"
+})
 
 async def generate_spot_graph():
     """
@@ -105,7 +119,7 @@ async def generate_spot_graph():
 
     while queue:
         node, level = queue.popleft()
-        
+
         if level >= max_level:
             continue
         for direction, offset in key_mapping.items():
@@ -145,7 +159,9 @@ async def save_spot_graph_nodes(db, graph):
     node_key_map = {}
 
     for (pos, rot, tilt), node in graph.node_map.items():
-        obj = SpotNode(pos, rot, tilt, joint_angle=node.joint_angle, is_visited=int(node.is_visited))
+        obj = SpotNode(
+                pos, rot, tilt, joint_angle=node.joint_angle,
+                is_visited=int(node.is_visited))
         node_objs.append(obj)
         node_key_map[(tuple(pos), tuple(rot))] = obj
 
@@ -161,7 +177,12 @@ async def save_spot_graph_links(db, graph, key_to_id):
         from_id = key_to_id[tuple(pos + rot + tilt)]
         for direction, neighbor in node.neighbors.items():
             if neighbor:
-                to_id = key_to_id[tuple(neighbor.base_position + neighbor.base_rotation + neighbor.base_tilt)]
+                key = tuple(
+                    neighbor.base_position +
+                    neighbor.base_rotation +
+                    neighbor.base_tilt
+                )
+                to_id = key_to_id[key]
                 links.append((from_id, to_id, direction))
 
     await db.bulk_update_direction_links(links)
