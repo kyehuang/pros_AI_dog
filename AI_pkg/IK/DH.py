@@ -2,11 +2,12 @@ import numpy as np
 from math import cos, sin, radians, degrees
 import sys
 import os
+from typing import Tuple
 from scipy.spatial.transform import Rotation as R
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from IK.spot_leg import SpotLeg
-from IK.spot_state import calculate_spot_shoulder_positon, spot_state_creater
+from IK.spot_state import calculate_spot_shoulder_positon, spot_state_creater, calculate_leg_end_positions
 from IK.plane_to_euler import extract_euler_angles_from_plane
 
 def dh_matrix(theta, d, a, alpha):
@@ -172,7 +173,7 @@ def rotate_to_ground_and_align_x(four_points, base_points=None):
 
     rotated = rotation1.apply(four_points)
     z_offset = rotated[0, 2] - 0
-    print("z_offset:", z_offset)
+    # print("z_offset:", z_offset)
     rotated = center_z(rotated, z_offset)
 
     # === 第二階段：讓邊對齊 x 軸 ===
@@ -304,6 +305,88 @@ def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
 
     return position, rotation
 
+def is_center_mass_in_trangle(joint_angles, joint_lengths, base_translations, type=None):
+    """
+    判斷重心是否在三角形內部
+    Args:
+        joint_angles (list): 關節角度
+        joint_lengths (list): 關節長度
+        base_translations (list): 基座平移
+        type (str): 腳的類型（"LF"、"RF"、"RB"、"LB"）
+    Returns:
+        bool: True 表示重心在三角形內部，False 表示不在
+    """
+    base_pose, base_rot = get_base_pose(joint_angles, joint_lengths, base_translations, type=type)
+
+    # get the foot positions
+    foot_pos, shoulder_pos = get_aligned_feet_and_shoulders(
+                                joint_angles, joint_lengths, base_translations)
+
+    triangle = []
+    if type == "LF":
+        triangle = np.array([foot_pos[1], foot_pos[2], foot_pos[3]])
+    elif type == "RB":
+        triangle = np.array([foot_pos[0], foot_pos[1], foot_pos[3]])
+
+    return is_point_in_triangle_3d(base_pose, triangle)
+
+def project_point_onto_triangle_plane(centroid: np.ndarray, triangle: np.ndarray
+                                      )-> Tuple[np.ndarray, np.ndarray]:
+    """
+    將點投影到由三角形定義的平面上
+
+    Args:
+        point (np.ndarray): 3D 空間中的點，shape (3,)
+        triangle (np.ndarray): 三角形的三個頂點，shape (3, 3)
+
+    Returns:
+        projected_point (np.ndarray): 投影後的點，shape (3,)
+        normal (np.ndarray): 三角形的法向量（單位向量）
+    """
+    edge1 = triangle[1] - triangle[0]
+    edge2 = triangle[2] - triangle[0]
+    normal = np.cross(edge1, edge2)
+    normal /= np.linalg.norm(normal)
+
+    vec_to_plane = centroid - triangle[0]
+    distance = np.dot(vec_to_plane, normal)
+    projected_point = centroid - distance * normal
+
+    return projected_point, normal
+
+def is_point_in_triangle_3d(centroid: np.ndarray, triangle: np.ndarray) -> bool:
+    """
+    判斷一個 3D 點在投影到三角形平面後是否落在三角形內部
+
+    Args:
+        point (np.ndarray): 要檢查的 3D 點，shape (3,)
+        triangle (np.ndarray): 三角形的三個頂點，shape (3, 3)
+
+    Returns:
+        bool: True 表示在三角形內，False 表示不在
+    """
+    projected, _ = project_point_onto_triangle_plane(centroid, triangle)
+
+    # 重心座標法
+    v0 = triangle[2] - triangle[0]
+    v1 = triangle[1] - triangle[0]
+    v2 = projected - triangle[0]
+
+    dot00 = np.dot(v0, v0)
+    dot01 = np.dot(v0, v1)
+    dot02 = np.dot(v0, v2)
+    dot11 = np.dot(v1, v1)
+    dot12 = np.dot(v1, v2)
+
+    denom = dot00 * dot11 - dot01 * dot01
+    if denom == 0:
+        return False  # 三角形退化
+
+    u = (dot11 * dot02 - dot01 * dot12) / denom
+    v = (dot00 * dot12 - dot01 * dot02) / denom
+
+    return (u >= 0) and (v >= 0) and (u + v <= 1)
+
 if __name__ == "__main__":
     # Example usage: calculate the end position of a robot arm
     BaseTranslation = [3, 2, 0]
@@ -349,7 +432,27 @@ if __name__ == "__main__":
     )
 
     print(get_foot_position(JointAngles, JointLengths, BaseTranslation))
+
+    basePos = [0, 0, 2]
+    baseRot = [10, 10, -4]
     JointAngles = spot_state_creater(
-        spotLeg, [0, 0, 2], baseRot, BaseTranslation, [0, 0]
+        spotLeg, basePos, baseRot, BaseTranslation, [0, 0]
     )
-    print(get_base_pose(JointAngles, JointLengths, BaseTranslation))
+    positon, rotation = get_base_pose(
+        JointAngles, JointLengths, BaseTranslation
+    )
+    print("Base Position:", positon)
+    print("Base Rotation:", rotation)
+
+    basePos = [0.1, 0, 0.25]
+    baseRot = [0, 0, 5]
+    basetilt = [-5, 0]
+    JointAngles = spot_state_creater(
+        spotLeg, basePos, baseRot, BaseTranslation, basetilt
+    )
+    print("Joint Angles:", JointAngles)
+    JointAngles = [-1.89, 136.1, 54.85, 358.38, 124.63, 23.09, 365.95, 139.29, 49.53, 5.91, 136.57, 56.14]
+    is_intri = is_center_mass_in_trangle(
+        JointAngles, JointLengths, BaseTranslation, type="LF"
+    )
+    print("Is in triangle:", is_intri)
