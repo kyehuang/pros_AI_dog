@@ -192,7 +192,9 @@ async def main():
     """
     Main function to generate the Spot graph and save it to the database.
     """
-    db = AsyncSpotGraphDB("postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase")
+    db = AsyncSpotGraphDB(
+        table_name = "nodes",
+        db_url = "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase")
     await db.create_tables()
 
     graph = await generate_spot_graph()
