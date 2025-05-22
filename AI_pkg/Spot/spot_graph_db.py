@@ -1,3 +1,9 @@
+"""
+This module provides an asynchronous database interface for managing a graph of Spot robot nodes.
+It uses SQLAlchemy with PostgreSQL and asyncpg for asynchronous operations.
+The database schema is designed to store the position, rotation, tilt,
+and joint angles of each node,as well as the relationships between nodes in various directions.
+"""
 import asyncio
 import json
 import time
@@ -16,9 +22,9 @@ Base = declarative_base()
 @dataclasses.dataclass
 class Node(Base):
     """
-    A class representing a node in the graph.
+    Abstract base class for Spot graph node.
     """
-    __tablename__ = 'nodes'
+    __abstract__ = True
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     x = Column(Float, nullable=False)
@@ -33,34 +39,63 @@ class Node(Base):
     joint_angle = Column(Text)
     is_visited = Column(Integer)
 
-    up_node_id = Column(Integer, ForeignKey('nodes.id'))
-    down_node_id = Column(Integer, ForeignKey('nodes.id'))
-    left_node_id = Column(Integer, ForeignKey('nodes.id'))
-    right_node_id = Column(Integer, ForeignKey('nodes.id'))
-    front_node_id = Column(Integer, ForeignKey('nodes.id'))
-    back_node_id = Column(Integer, ForeignKey('nodes.id'))
-    rx_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    rx_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    ry_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    ry_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    rz_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    rz_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    tilt_lf_rb_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    tilt_lf_rb_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    tilt_rf_lb_plus_node_id = Column(Integer, ForeignKey('nodes.id'))
-    tilt_rf_lb_minus_node_id = Column(Integer, ForeignKey('nodes.id'))
 
-    __table_args__ = (
-        UniqueConstraint('x', 'y', 'z', 'rx', 'ry', 'rz', 'tilt_lf_rb', 'tilt_rf_lb', name='uq_nodes_position_rotation'),
-    )
+def create_node_table_class(tablename: str):
+    """
+    Create a dynamic table class for Spot graph nodes.
+    """
+    return type(tablename, (Node,), {
+        '__tablename__': tablename,
+        'id': Column(Integer, primary_key=True, autoincrement=True),
+        'x': Column(Float, nullable=False),
+        'y': Column(Float, nullable=False),
+        'z': Column(Float, nullable=False),
+
+        'rx': Column(Float, nullable=False),
+        'ry': Column(Float, nullable=False),
+        'rz': Column(Float, nullable=False),
+        'tilt_lf_rb': Column(Float, nullable=False),
+        'tilt_rf_lb': Column(Float, nullable=False),
+
+        'joint_angle': Column(Text),
+        'is_visited': Column(Integer),
+
+        'up_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'down_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'left_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'right_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'front_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'back_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'rx_plus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'rx_minus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'ry_plus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'ry_minus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'rz_plus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'rz_minus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'tilt_lf_rb_plus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'tilt_lf_rb_minus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'tilt_rf_lb_plus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        'tilt_rf_lb_minus_node_id': Column(Integer, ForeignKey(f'{tablename}.id')),
+        '__table_args__': (
+            UniqueConstraint(
+                'x', 'y', 'z', 'rx', 'ry', 'rz',
+                'tilt_lf_rb', 'tilt_rf_lb',
+                name=f'unique_{tablename}'
+            ),
+        ),
+    })
+
 
 class AsyncSpotGraphDB:
     """ 
     A class representing a database for the Spot robot's graph.
     """
-    def __init__(self, db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"):
+    def __init__(self,
+            table_name='spot_nodes',
+            db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"):
         self.engine = create_async_engine(db_url, echo=False)
         self.async_session = sessionmaker(self.engine, expire_on_commit=False, class_=AsyncSession)
+        self.table_node = create_node_table_class(table_name)
         self.direction_cache = {}
         self.key_mapping = {
             "up": "down", "down": "up", "left": "right", "right": "left",
@@ -80,15 +115,19 @@ class AsyncSpotGraphDB:
             await conn.run_sync(Base.metadata.create_all)
 
     async def preload_all_neighbors(self):
+        """
+        Preload all direction neighbors from the database into the cache.
+        """
         async with self.async_session() as session:
             stmt = select(
-                Node.id, Node.up_node_id, Node.down_node_id, Node.left_node_id, Node.right_node_id,
-                Node.front_node_id, Node.back_node_id,
-                Node.rx_plus_node_id, Node.rx_minus_node_id,
-                Node.ry_plus_node_id, Node.ry_minus_node_id,
-                Node.rz_plus_node_id, Node.rz_minus_node_id,
-                Node.tilt_lf_rb_plus_node_id, Node.tilt_lf_rb_minus_node_id,
-                Node.tilt_rf_lb_plus_node_id, Node.tilt_rf_lb_minus_node_id
+                self.table_node.id, self.table_node.up_node_id, self.table_node.down_node_id,
+                self.table_node.left_node_id, self.table_node.right_node_id,
+                self.table_node.front_node_id, self.table_node.back_node_id,
+                self.table_node.rx_plus_node_id, self.table_node.rx_minus_node_id,
+                self.table_node.ry_plus_node_id, self.table_node.ry_minus_node_id,
+                self.table_node.rz_plus_node_id, self.table_node.rz_minus_node_id,
+                self.table_node.tilt_lf_rb_plus_node_id, self.table_node.tilt_lf_rb_minus_node_id,
+                self.table_node.tilt_rf_lb_plus_node_id, self.table_node.tilt_rf_lb_minus_node_id
             )
             result = await session.execute(stmt)
             for row in result.fetchall():
@@ -99,8 +138,10 @@ class AsyncSpotGraphDB:
                     "rx_plus": row.rx_plus_node_id, "rx_minus": row.rx_minus_node_id,
                     "ry_plus": row.ry_plus_node_id, "ry_minus": row.ry_minus_node_id,
                     "rz_plus": row.rz_plus_node_id, "rz_minus": row.rz_minus_node_id,
-                    "tilt_lf_rb_plus": row.tilt_lf_rb_plus_node_id, "tilt_lf_rb_minus": row.tilt_lf_rb_minus_node_id,
-                    "tilt_rf_lb_plus": row.tilt_rf_lb_plus_node_id, "tilt_rf_lb_minus": row.tilt_rf_lb_minus_node_id
+                    "tilt_lf_rb_plus": row.tilt_lf_rb_plus_node_id,
+                    "tilt_lf_rb_minus": row.tilt_lf_rb_minus_node_id,
+                    "tilt_rf_lb_plus": row.tilt_rf_lb_plus_node_id,
+                    "tilt_rf_lb_minus": row.tilt_rf_lb_minus_node_id
                 }
 
     async def add_node(self, node):
@@ -109,7 +150,7 @@ class AsyncSpotGraphDB:
         """
         async with self.async_session() as session:
             async with session.begin():
-                stmt = insert(Node).values(
+                stmt = insert(self.table_node).values(
                     x=node.base_position[0],
                     y=node.base_position[1],
                     z=node.base_position[2],
@@ -135,7 +176,7 @@ class AsyncSpotGraphDB:
         async with self.async_session() as session:
             for i in tqdm(range(0, len(nodes), batch_size), desc="Inserting nodes"):
                 batch = nodes[i:i+batch_size]
-                stmt = insert(Node).values([
+                stmt = insert(self.table_node).values([
                     {
                         "x": node.base_position[0],
                         "y": node.base_position[1],
@@ -151,7 +192,10 @@ class AsyncSpotGraphDB:
                     for node in batch
                 ]).on_conflict_do_nothing(
                     index_elements=["x", "y", "z", "rx", "ry", "rz", "tilt_lf_rb", "tilt_rf_lb"]
-                ).returning(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz, Node.tilt_lf_rb, Node.tilt_rf_lb)
+                ).returning(self.table_node.id,
+                            self.table_node.x, self.table_node.y, self.table_node.z,
+                            self.table_node.rx, self.table_node.ry, self.table_node.rz,
+                            self.table_node.tilt_lf_rb, self.table_node.tilt_rf_lb)
 
                 result = await session.execute(stmt)
                 inserted = result.fetchall()
@@ -179,10 +223,12 @@ class AsyncSpotGraphDB:
                     round(node.base_tilt[1], 3)
                 )
                 if key not in key_to_id:
-                    stmt = select(Node.id).where(
-                        (Node.x == key[0]) & (Node.y == key[1]) & (Node.z == key[2]) &
-                        (Node.rx == key[3]) & (Node.ry == key[4]) & (Node.rz == key[5]) &
-                        (Node.tilt_lf_rb == key[6]) & (Node.tilt_rf_lb == key[7])
+                    stmt = select(self.table_node.id).where(
+                        (self.table_node.x == key[0]) & (self.table_node.y == key[1]) &
+                        (self.table_node.z == key[2]) & (self.table_node.rx == key[3]) &
+                        (self.table_node.ry == key[4]) & (self.table_node.rz == key[5]) &
+                        (self.table_node.tilt_lf_rb == key[6]) &
+                        (self.table_node.tilt_rf_lb == key[7])
                     )
                     result = await session.execute(stmt)
                     node_id = result.scalar()
@@ -204,7 +250,7 @@ class AsyncSpotGraphDB:
 
         async with self.async_session() as session:
             async with session.begin():
-                node = await session.get(Node, from_id)
+                node = await session.get(self.table_node, from_id)
                 setattr(node, f"{direction}_node_id", to_id)
             await session.commit()
 
@@ -228,8 +274,8 @@ class AsyncSpotGraphDB:
                             raise ValueError(f"Invalid direction: {direction}")
 
                         stmt = (
-                            Node.__table__.update()
-                            .where(Node.id == from_id)
+                            self.table_node.__table__.update()
+                            .where(self.table_node.id == from_id)
                             .values({f"{direction}_node_id": to_id})
                         )
                         await session.execute(stmt)
@@ -242,7 +288,7 @@ class AsyncSpotGraphDB:
             return self.direction_cache[node_id]
 
         async with self.async_session() as session:
-            node = await session.get(Node, node_id)
+            node = await session.get(self.table_node, node_id)
             if node:
                 neighbors = {
                     "up": node.up_node_id, "down": node.down_node_id,
@@ -251,8 +297,10 @@ class AsyncSpotGraphDB:
                     "rx_plus": node.rx_plus_node_id, "rx_minus": node.rx_minus_node_id,
                     "ry_plus": node.ry_plus_node_id, "ry_minus": node.ry_minus_node_id,
                     "rz_plus": node.rz_plus_node_id, "rz_minus": node.rz_minus_node_id,
-                    "tilt_lf_rb_plus": node.tilt_lf_rb_plus_node_id, "tilt_lf_rb_minus": node.tilt_lf_rb_minus_node_id,
-                    "tilt_rf_lb_plus": node.tilt_rf_lb_plus_node_id, "tilt_rf_lb_minus": node.tilt_rf_lb_minus_node_id
+                    "tilt_lf_rb_plus": node.tilt_lf_rb_plus_node_id,
+                    "tilt_lf_rb_minus": node.tilt_lf_rb_minus_node_id,
+                    "tilt_rf_lb_plus": node.tilt_rf_lb_plus_node_id,
+                    "tilt_rf_lb_minus": node.tilt_rf_lb_minus_node_id
                 }
                 self.direction_cache[node_id] = neighbors
                 return neighbors
@@ -269,15 +317,15 @@ class AsyncSpotGraphDB:
         Get the node ID from the database based on the position and rotation of the Spot robot.
         """
         async with self.async_session() as session:
-            stmt = select(Node.id).where(
-                (Node.x == base_position[0]) &
-                (Node.y == base_position[1]) &
-                (Node.z == base_position[2]) &
-                (Node.rx == base_rotation[0]) &
-                (Node.ry == base_rotation[1]) &
-                (Node.rz == base_rotation[2]) &
-                (Node.tilt_lf_rb == base_tilt[0]) &
-                (Node.tilt_rf_lb == base_tilt[1])
+            stmt = select(self.table_node.id).where(
+                (self.table_node.x == base_position[0]) &
+                (self.table_node.y == base_position[1]) &
+                (self.table_node.z == base_position[2]) &
+                (self.table_node.rx == base_rotation[0]) &
+                (self.table_node.ry == base_rotation[1]) &
+                (self.table_node.rz == base_rotation[2]) &
+                (self.table_node.tilt_lf_rb == base_tilt[0]) &
+                (self.table_node.tilt_rf_lb == base_tilt[1])
             )
             result = await session.execute(stmt)
             return result.scalar()
@@ -287,7 +335,10 @@ class AsyncSpotGraphDB:
         Get all node keys from the database.
         """
         async with self.async_session() as session:
-            stmt = select(Node.id, Node.x, Node.y, Node.z, Node.rx, Node.ry, Node.rz, Node.tilt_lf_rb, Node.tilt_rf_lb)
+            stmt = select(self.table_node.id,
+                          self.table_node.x, self.table_node.y, self.table_node.z,
+                          self.table_node.rx, self.table_node.ry, self.table_node.rz,
+                          self.table_node.tilt_lf_rb, self.table_node.tilt_rf_lb)
             result = await session.execute(stmt)
             rows = result.fetchall()
             return {
@@ -297,6 +348,7 @@ class AsyncSpotGraphDB:
                 for row in rows
             }
 
+@dataclasses.dataclass
 class SpotNode:
     """
     A class representing a node in the Spot robot's graph.
@@ -312,7 +364,8 @@ async def main():
     """
     Main function to demonstrate the usage of the AsyncSpotGraphDB class.
     """
-    db = AsyncSpotGraphDB("postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase")
+    db = AsyncSpotGraphDB(
+        db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase")
     await db.create_tables()
 
     node_a = SpotNode([0, 0, 0], [0, 0, 0])
@@ -329,7 +382,7 @@ async def main():
     neighbors = await db.get_direction_neighbors(1)
     print("Neighbors of node A:", neighbors)
 
-    node_list = [SpotNode([i, i, i], [i, i, 0]) for i in range(5)]
+    node_list = [SpotNode([i, i, i], [i, i, 0]) for i in range(2000)]
     start = time.perf_counter()
     await db.bulk_add_nodes(node_list)
     end = time.perf_counter()
