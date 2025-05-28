@@ -31,6 +31,7 @@ class RobotControlApp(QMainWindow):
         self.ui.run_list.clicked.connect(self.run_list)
         self.ui.save_btn.clicked.connect(self.save_data_to_file)
         self.ui.load_btn.clicked.connect(self.load_data_from_file)
+        self.ui.load_list_2.clicked.connect(self.load_data_from_list)
 
         # 初始化 ROSBridge 客戶端
         self.ros = None
@@ -341,6 +342,38 @@ class RobotControlApp(QMainWindow):
         except Exception as e:
             print(f"[LOAD ERROR] {e}")
             self.set_status("載入失敗", "red")
+
+    def load_data_from_list(self):
+        row = self.ui.listWidget.currentRow()
+        print(f"row: {row}")
+        if row >= 0:
+            item = self.data[row]
+            self.base_position = item["base_position"]
+            self.base_rotation = item["base_rotation"]
+            self.base_tilt = item["base_tilt"]
+            self.leg_end_position = item["leg_end_position"]
+            print(f"載入參數組 {row + 1}: {item}")
+            print(f"base_position: {self.base_position}")
+            print(f"base_rotation: {self.base_rotation}")
+            print(f"base_tilt: {self.base_tilt}")
+
+            # 更新 UI
+            self.ui.doubleSpinBox.setValue(self.base_position[0])
+            self.ui.doubleSpinBox_2.setValue(self.base_position[1])
+            self.ui.doubleSpinBox_3.setValue(self.base_position[2])
+            self.ui.doubleSpinBox_4.setValue(self.base_rotation[0])
+            self.ui.doubleSpinBox_5.setValue(self.base_rotation[1])
+            self.ui.doubleSpinBox_6.setValue(self.base_rotation[2])
+            self.ui.doubleSpinBox_7.setValue(self.base_tilt[0])
+            self.ui.doubleSpinBox_8.setValue(self.base_tilt[1])
+            # for i in range(4):
+            #     self.ui.doubleSpinBox_9.setValue(item["leg_end_position"][i][0])
+            #     self.ui.doubleSpinBox_10.setValue(item["leg_end_position"][i][1])
+            #     self.ui.doubleSpinBox_11.setValue(item["leg_end_position"][i][2])
+
+        else:
+            print("請先選取要載入的項目")
+            self.set_status("未選取任何項目", "orange")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
