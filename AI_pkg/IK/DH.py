@@ -305,7 +305,8 @@ def get_base_pose(joint_angles, joint_lengths, base_translations, type=None):
 
     return position, rotation
 
-def is_center_mass_in_trangle(joint_angles, joint_lengths, base_translations, type=None):
+def is_center_mass_in_trangle(joint_angles, joint_lengths, base_translations,
+                              type=None):
     """
     判斷重心是否在三角形內部
     Args:
@@ -324,11 +325,35 @@ def is_center_mass_in_trangle(joint_angles, joint_lengths, base_translations, ty
 
     triangle = []
     if type == "LF":
-        triangle = np.array([foot_pos[1], foot_pos[2], foot_pos[3]])
+        triangle = np.array([foot_pos[1], foot_pos[3], foot_pos[2]])
     elif type == "RB":
-        triangle = np.array([foot_pos[0], foot_pos[1], foot_pos[3]])
+        triangle = np.array([foot_pos[1], foot_pos[3], foot_pos[0]])
+    elif type == "RF":
+        triangle = np.array([foot_pos[0], foot_pos[2], foot_pos[3]])
+    elif type == "LB":
+        triangle = np.array([foot_pos[0], foot_pos[2], foot_pos[1]])
+    else:
+        raise ValueError("Invalid type. Must be 'LF', 'RF', 'RB', or 'LB'.")
+
+    is_same_side = is_same_side_of_edge(base_pose, triangle[0], triangle[1], triangle[2])
+    if not is_same_side:
+        return False
 
     return is_point_in_triangle_3d(base_pose, triangle)
+
+def is_same_side_of_edge(p, a, b, ref):
+    """
+    if the point p is on the same side of the edge defined by points a and b
+    """
+    ab = b[:2] - a[:2]
+    ap = p[:2] - a[:2]
+    ar = ref[:2] - a[:2]
+
+    # calculate the cross product
+    cross1 = ab[0] * ap[1] - ab[1] * ap[0]
+    cross2 = ab[0] * ar[1] - ab[1] * ar[0]
+
+    return cross1 * cross2 >= 0
 
 def project_point_onto_triangle_plane(centroid: np.ndarray, triangle: np.ndarray
                                       )-> Tuple[np.ndarray, np.ndarray]:
@@ -385,7 +410,48 @@ def is_point_in_triangle_3d(centroid: np.ndarray, triangle: np.ndarray) -> bool:
     u = (dot11 * dot02 - dot01 * dot12) / denom
     v = (dot00 * dot12 - dot01 * dot02) / denom
 
-    return (u >= 0) and (v >= 0) and (u + v <= 1)
+    is_inside = (u >= 0) and (v >= 0) and (u + v <= 1)
+    if  is_inside:
+        return True
+
+    is_stable = is_stable_with_margin(centroid, triangle)
+    if is_stable:
+        return True
+
+    return False
+
+def is_stable_with_margin(base_pose, triangle, margin=0.1):
+    """
+    if the base pose is within a certain margin of the triangle edges
+    Args:
+        base_pose (np.ndarray): base position in 3D space, shape (3,)
+        triangle (np.ndarray): triangle vertices in 3D space, shape (3, 3)
+        margin (float): the margin distance to consider the point stable
+    Returns:
+        bool: True if the base pose is within the margin of the triangle edges, False otherwise
+    """
+    p2d = base_pose[:2]
+    tri2d = triangle[:, :2]
+
+    # calculate the distance from the point to each edge of the triangle
+    distances = [
+        point_to_segment_distance(p2d, tri2d[i], tri2d[(i + 1) % 3])
+        for i in range(3)
+    ]
+    min_dist = min(distances)
+
+    return min_dist <= margin
+
+def point_to_segment_distance(p, a, b):
+    """
+    calculate the distance from point p to the line segment defined by points a and b.
+    """
+    ab = b - a
+    ap = p - a
+    t = np.dot(ap, ab) / np.dot(ab, ab)
+    t = np.clip(t, 0, 1)
+    closest = a + t * ab
+    return np.linalg.norm(p - closest)
 
 if __name__ == "__main__":
     # Example usage: calculate the end position of a robot arm
