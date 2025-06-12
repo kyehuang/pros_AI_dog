@@ -1,30 +1,33 @@
+"""
+This module provides functionality to find a route for the Spot robot using a graph database.
+#         Find a route from the origin point to the target point.
+"""
 import json
-import time
-import numpy as np
 import asyncio
+import time
 from collections import deque
 from typing import List
 
-from IK.spot_state import spot_state_creater
-from IK.DH import get_foot_position
-from IK.spot_leg import SpotLeg
+import numpy as np
+
 from Spot.spot_graph_db import AsyncSpotGraphDB
-from ros_receive_and_processing import ai_dog_node
+from Spot.spot_pose_nodes import AsyncSpotNameDB
 from utils.gym_manger import GymManager
+from utils.pose_query import query_pose_dbs_by_feet_positions
 
 class SpotRouteFinder:
     """
     A class to find a route for the Spot robot using a graph database.
     """
-    def __init__(self, db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/myd    atabase"):
+    def __init__(self,
+          db_url="postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase",
+          table_name="nodes_t"):
         self.db_url = db_url
+        self.table_name = table_name
         self._config = {
-            "joint_lengths": [0.0801, 0.1501, 0.1451],
-            "base_translation": [0.3740, 0.1670, 0],
             "unit": 0.05
         }
         self.db = None
-        self.spot_leg = None
         self.key_map = {}
         self.setup_done = False
 
@@ -34,13 +37,15 @@ class SpotRouteFinder:
         """
         start_time = time.time()
         print("Connecting to database...")
-        self.db = AsyncSpotGraphDB(self.db_url)
+        self.db = AsyncSpotGraphDB(table_name=self.table_name, db_url=self.db_url)
         await self.db.create_tables()
-        self.spot_leg = SpotLeg(self._config["joint_lengths"], [0, 0, 0])
+
         key_to_id = await self.db.get_all_node_keys()
+        key_to_joint_angles = await self.db.get_all_node_joint_angles()
         self.key_map = {
             "forward": key_to_id,
-            "reverse": {v: k for k, v in key_to_id.items()}
+            "reverse": {v: k for k, v in key_to_id.items()},
+            "joint_angles": dict(key_to_joint_angles)
         }
         await self.db.preload_all_neighbors()
         print(f"Database connected in {time.time() - start_time:.2f} seconds")
@@ -92,15 +97,13 @@ class SpotRouteFinder:
         Get the node ID from the database based on the position and rotation of the Spot robot.
         """
         print("get_node_id", point)
-        joint_angle = spot_state_creater(self.spot_leg,
-                        point['pos'], point['rot'],
-                        self._config["base_translation"],
-                        point['tilt'])
-        if not self.is_valid_pose(joint_angle):
-            print("Invalid joint angle")
-            return None
         unit = self._config["unit"]
-        key = tuple(round(round(x / unit) * unit, 3) for x in point['pos'] + point['rot'] + point['tilt'])
+        rounded_components = [
+            round(round(x / unit) * unit, 3)
+            for x in point["pos"] + point["rot"] + point["tilt"]
+        ]
+
+        key = tuple(rounded_components)
         return self.key_map["forward"].get(key)
 
     def calculate_offset_point(self, from_key, to_point):
@@ -169,36 +172,31 @@ def interpolate_angles(start, end, steps=10):
     """
     start = np.array(start)
     end = np.array(end)
-    return [((1 - t) * start + t * end).tolist() for t in np.linspace(0, 1, steps + 2)[1:-1]]  # exclude start & end
+      # exclude start & end
+    return [((1 - t) * start + t * end).tolist() for t in np.linspace(0, 1, steps + 2)[1:-1]]
 
-def ask_db_url() -> str:
+def ask_db_ip() -> str:
     """
     Ask the user for the database URL.
     """
     if input("Use cloud database? [y/N]: ").strip().lower() == "y":
-        ip = input("SQL IP: ").strip()
-        return f"postgresql+asyncpg://myuser:mypassword@{ip}:5432/mydatabase"
-    return "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydatabase"
+        db_ip = input("SQL IP: ").strip()
+        return db_ip
+    return "localhost"
 
 def play_spot_route(path_ids: List[int], finder,
-                    steps_per_segment: int = 10, dt: float = 0.05) -> None:
+                    steps_per_segment: int = 10, dt: float = 0.01) -> None:
     """
     Play the Spot route using the AI dog node.
     """
-    rev_map = finder.key_map["reverse"]
-    base_tf = finder._config["base_translation"]
-    spot_leg = finder.spot_leg
+    rev_map = finder.key_map["joint_angles"]
 
     dog_node, ros_thread = GymManager().init_ai_dog_node()
     try:
         # 逐段處理
         for cur_id, nxt_id in zip(path_ids, path_ids[1:]):
             # 取出兩端點的（pos, rot）
-            cur_pose, nxt_pose = rev_map[cur_id], rev_map[nxt_id]
-
-            # 計算對應關節角
-            start_angles = spot_state_creater(spot_leg, cur_pose[:3], cur_pose[3:6], base_tf, cur_pose[6:])
-            end_angles   = spot_state_creater(spot_leg, nxt_pose[:3], nxt_pose[3:6], base_tf, nxt_pose[6:])
+            start_angles, end_angles = rev_map[cur_id], rev_map[nxt_id]
 
             # 發送插值
             for ang in interpolate_angles(start_angles, end_angles, steps_per_segment):
@@ -213,23 +211,16 @@ def play_spot_route(path_ids: List[int], finder,
         print("[INFO] AI_dog_node stopped.")
 
 
-async def main():
+async def traversal_at_stance(
+            waypoints: List[dict] = None,
+            table_name: str = "nodes_t",
+            db_ip: str = "localhost") -> None:
     """
     Main function to run the Spot route finder.
     """
-    waypoints = [
-        {"pos": [0.00, 0.00, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},       # 起點
-        {"pos": [0.10, 0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},      # 第一目標
-        {"pos": [0.10, -0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第二目標
-        {"pos": [-0.10, -0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第三目標
-        {"pos": [-0.10, 0.05, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第四目標
-        {"pos": [0.00, 0.00, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 終點
-    ]
-
-    # Ask for database URL
-    db_url = ask_db_url()
     # Initialize SpotRouteFinder
-    finder = SpotRouteFinder(db_url)
+    db_url = f"postgresql+asyncpg://myuser:mypassword@{db_ip}:5432/mydatabase"
+    finder = SpotRouteFinder(db_url, table_name=table_name["stance"])
 
     full_path: list[int] = []
 
@@ -254,5 +245,34 @@ async def main():
         print("No path found.")
 
 
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Ask for database URL
+    ip = ask_db_ip()
+    foot_positions = [
+        [0.0, 0.0, 0.05],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0]
+    ]
+    name_db = AsyncSpotNameDB(
+        table_name="spot_nodes_name",
+        db_url=f"postgresql+asyncpg://myuser:mypassword@{ip}:5432/db_name"
+    )
+    stance_pose_db = asyncio.run(query_pose_dbs_by_feet_positions(
+        name_db,
+        foot_positions,
+    ))
+    print(f"Stance pose DB: {stance_pose_db}")
+
+    traversal_points = [
+        {"pos": [0.00, 0.00, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},       # 起點
+        {"pos": [0.05, 0.03, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},      # 第一目標
+        {"pos": [0.05, -0.03, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第二目標
+        {"pos": [-0.05, -0.03, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第三目標
+        {"pos": [-0.05, 0.03, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 第四目標
+        {"pos": [0.00, 0.00, 0.20], "rot": [0, 0, 0], "tilt": [0, 0]},     # 終點
+    ]
+    asyncio.run(traversal_at_stance(traversal_points,
+                                     table_name=stance_pose_db,
+                                     db_ip=ip))
