@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import (
-    Column, Integer, Float, Text, ForeignKey, UniqueConstraint, select
+    Column, Integer, Float, Text, ForeignKey, UniqueConstraint, select, text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import insert
@@ -348,6 +348,31 @@ class AsyncSpotGraphDB:
                 for row in rows
             }
 
+    async def get_all_node_joint_angles(self):
+        """
+        Get all node joint angles from the database.
+        """
+        async with self.async_session() as session:
+            stmt = select(self.table_node.id, self.table_node.joint_angle)
+            result = await session.execute(stmt)
+            rows = result.fetchall()
+            return {
+                row.id: json.loads(row.joint_angle) for row in rows
+            }
+
+    async def drop_all_tables(self):
+        """
+        Drop all tables in the database.
+        """
+        async with self.engine.begin() as conn:
+            result = await conn.execute(
+                text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+            )
+            tables = [row[0] for row in result.fetchall()]
+            for table in tables:
+                drop_stmt = text(f'DROP TABLE IF EXISTS "{table}" CASCADE')
+                await conn.execute(drop_stmt)
+
 @dataclasses.dataclass
 class SpotNode:
     """
@@ -390,6 +415,10 @@ async def main():
     print(f"Added 20000 nodes in {end - start:.2f} seconds")
     print(f"{20000 / (end - start):.2f} node/s")
 
+    is_drop = input("Do you want to drop all tables? (y/n): ")
+    if is_drop.lower() == 'y':
+        await db.drop_all_tables()
+        print("All tables dropped.")
     await db.close()
 
 if __name__ == "__main__":
