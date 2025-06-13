@@ -4,7 +4,6 @@ positions and orientations of the Spot robot.
 Each node contains information about its position, rotation, 
 joint angles, and connections to neighboring nodes.
 """
-import time
 from collections import deque
 from tqdm import tqdm
 
@@ -12,6 +11,7 @@ import numpy as np
 
 from IK.spot_state import spot_state_creater
 from IK.spot_leg import SpotLeg
+from IK.DH import is_center_mass_in_trangle
 
 
 MAX_ROTATION = [40, 30, 15]
@@ -107,7 +107,12 @@ class SpotGraph:
         return self.node_map.get((tuple(base_position), tuple(base_rotation), tuple(base_tilt)))
 
 
-async def generate_spot_graph(max_level=15, multiple=1, key_mapping= None, leg_end_position=None):
+async def generate_spot_graph(
+        max_level=15,
+        multiple=1,
+        key_mapping= None,
+        leg_end_position=None,
+        state=None):
     """
     Generate a graph of Spot nodes based on the Spot robot's joint angles and positions.
     """
@@ -119,12 +124,18 @@ async def generate_spot_graph(max_level=15, multiple=1, key_mapping= None, leg_e
                             root.base_tilt,
                             leg_end_position)
 
+    if state is not None:
+        if state not in ["LF", "RF", "LB", "RB"]:
+            raise ValueError("State must be one of 'LF', 'RF', 'LB', 'RB', None")
+        root = find_root_node(
+            root, state, key_mapping, leg_end_position
+        )
+
     graph = SpotGraph()
     graph.add_node(root)
     queue = deque([(root, 0)])
 
     pbar = tqdm(desc="生成節點", unit=" nodes")
-    start_time = time.time()
 
     while queue:
         node, level = queue.popleft()
@@ -136,7 +147,8 @@ async def generate_spot_graph(max_level=15, multiple=1, key_mapping= None, leg_e
                 "direction": direction,
                 "offset": offset,
                 "multiple": multiple,
-                "leg_end_position": leg_end_position
+                "leg_end_position": leg_end_position,
+                "state": state
             }
             new_node = create_valid_node(
                 node, graph, config
@@ -148,8 +160,7 @@ async def generate_spot_graph(max_level=15, multiple=1, key_mapping= None, leg_e
                 pbar.update(1)
 
     pbar.close()
-    print(f"Graph generated in {time.time() - start_time:.2f} seconds")
-    print(f"Total nodes: {len(graph.node_map)}")
+
     return graph
 
 def compute_new_pose(node, offset, multiple):
@@ -178,7 +189,7 @@ def create_valid_node(node, graph, config):
         SPOT_LEG, new_pose["pos"], new_pose["rot"],
         BASE_TRANSLATION, new_pose["tilt"], config["leg_end_position"]
     )
-    if not is_valid_joint_angle(joint_angle):
+    if not is_valid_joint_angle(joint_angle, config["state"]):
         return None
 
     new_node = SpotNode(
@@ -199,7 +210,7 @@ def is_valid_position(position, rotation) -> bool:
         return False
     return True
 
-def is_valid_joint_angle(joint_angle: np.ndarray) -> bool:
+def is_valid_joint_angle(joint_angle: np.ndarray, state=None) -> bool:
     """
     Check if the joint angles of a Spot node are valid.
     Valid joint angles are within specified limits and follow a specific sequence.
@@ -219,7 +230,67 @@ def is_valid_joint_angle(joint_angle: np.ndarray) -> bool:
     if any(joint_angle[i] < joint_angle[i + 1] for i in angle_sequence_indices):
         return False
 
+    if state is not None:
+        if state not in ["LF", "RF", "LB", "RB"]:
+            raise ValueError("State must be one of 'LF', 'RF', 'LB', 'RB'")
+        if_in_trangle = is_center_mass_in_trangle(
+                            joint_angle,
+                            SPOT_LEG.joint_lengths,
+                            BASE_TRANSLATION,
+                            type=state
+                        )
+        if not if_in_trangle:
+            return False
     return True
+
+def find_root_node(
+        root_node: SpotNode,
+        state=None,
+        key_mapping=None,
+        leg_end_position=None):
+    """
+    Find the root node in the graph. The root node is the one with no neighbors.
+    """
+    queue = deque([root_node])
+    visited = set()
+
+    while queue:
+        node = queue.popleft()
+
+        visited.add(node)
+
+        for _, offset in key_mapping.items():
+            config = {
+                "offset": offset,
+                "multiple": 1,
+                "leg_end_position": leg_end_position,
+                "state": state
+            }
+            new_pose = compute_new_pose(node, config["offset"], config["multiple"])
+
+            new_node = SpotNode(
+                new_pose["pos"], new_pose["rot"], new_pose["tilt"])
+
+            queue.append(new_node)
+
+            if not is_valid_position(new_pose["pos"], new_pose["rot"]):
+                continue
+
+            if (tuple(new_pose["pos"]),
+                tuple(new_pose["rot"]),
+                tuple(new_pose["tilt"])) in visited:
+                continue
+
+            joint_angle = spot_state_creater(
+                SPOT_LEG, new_pose["pos"], new_pose["rot"],
+                BASE_TRANSLATION, new_pose["tilt"], config["leg_end_position"]
+            )
+
+            if not is_valid_joint_angle(joint_angle, config["state"]):
+                continue
+            return new_node
+
+    return None
 
 async def save_spot_graph_nodes(db, graph):
     """
