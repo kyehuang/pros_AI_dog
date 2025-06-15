@@ -192,31 +192,6 @@ def ask_db_ip() -> str:
         return db_ip
     return "localhost"
 
-def play_spot_route(path_ids: List[int], finder,
-                    steps_per_segment: int = 10, dt: float = 0.01) -> None:
-    """
-    Play the Spot route using the AI dog node.
-    """
-    rev_map = finder.key_map["joint_angles"]
-
-    dog_node, ros_thread = GymManager().init_ai_dog_node()
-    try:
-        # 逐段處理
-        for cur_id, nxt_id in zip(path_ids, path_ids[1:]):
-            # 取出兩端點的（pos, rot）
-            start_angles, end_angles = rev_map[cur_id], rev_map[nxt_id]
-
-            # 發送插值
-            for ang in interpolate_angles(start_angles, end_angles, steps_per_segment):
-                dog_node.publish_spot_actions(ang)
-                time.sleep(dt)
-
-            # 再發送一次終點角度，確保到位
-            dog_node.publish_spot_actions(end_angles)
-            time.sleep(dt)
-    finally:
-        GymManager().shutdown_ai_dog_node(dog_node, ros_thread)
-        print("[INFO] AI_dog_node stopped.")
 
 @dataclass
 class SpotRouteConfig:
@@ -229,6 +204,8 @@ class SpotRouteConfig:
     waypoints: List[dict] = None
     step_per_time: float = 0.01
     steps_per_segment: int = 10
+    dog_node: ai_dog_node = None
+    ros_thread: threading.Thread = None
 
 class SpotRouteExecutor:
     """
@@ -246,6 +223,9 @@ class SpotRouteExecutor:
         self.step_per_time = config.step_per_time
         self.steps_per_segment = config.steps_per_segment
         self.full_path = []
+
+        if config.dog_node is None:
+            config.dog_node, config.ros_thread = GymManager().init_ai_dog_node()
 
     async def compute_path(self) -> List[int]:
         """
@@ -288,11 +268,10 @@ class SpotRouteExecutor:
             await self.compute_path()
 
         if self.full_path:
-            play_spot_route(
-                self.full_path,
-                self.finder,
+            self.play_spot_route(
+                path_ids=self.full_path,
                 steps_per_segment=self.steps_per_segment,
-                dt=self.step_per_time
+                step_per_time=self.step_per_time
             )
         else:
             print("No path found.")
@@ -311,6 +290,30 @@ class SpotRouteExecutor:
         self.full_path = []
         print("Path cleared.")
 
+    def play_spot_route(
+            self,
+            path_ids,
+            steps_per_segment: int = 10,
+            step_per_time: float = 0.01
+        ) -> None:
+        """
+        Play the Spot route using the AI dog node.
+        :param path_ids: List of node IDs representing the route.
+        :param steps_per_segment: Number of steps per segment for interpolation.
+        :param step_per_time: Delay between steps in seconds.
+        """
+
+        for cur_id, nxt_id in zip(path_ids, path_ids[1:]):
+            # Get the joint angles for the current and next node
+            start_angles, end_angles = self.finder.key_map["joint_angles"][cur_id], \
+                                    self.finder.key_map["joint_angles"][nxt_id]
+
+            self.config.dog_node.send_joint_angle_trajectory(
+                start_action=start_angles,
+                target_action=end_angles,
+                step=steps_per_segment,
+                delay=step_per_time
+            )
 
 @dataclass
 class SpotLiftConfig:
