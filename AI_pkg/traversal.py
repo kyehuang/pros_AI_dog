@@ -4,14 +4,18 @@ This module provides functionality to find a route for the Spot robot using a gr
 """
 import asyncio
 import time
+import threading
 from collections import deque
 from typing import List
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from Spot.spot_graph_db import AsyncSpotGraphDB
 from Spot.spot_pose_nodes import AsyncSpotNameDB
+from Spot.spot_lift_action import AsyncSpotLiftActionDB
+from ros_receive_and_processing import ai_dog_node
 from utils.gym_manger import GymManager
 from utils.pose_query import query_pose_dbs_by_feet_positions
 
@@ -307,6 +311,100 @@ class SpotRouteExecutor:
         self.full_path = []
         print("Path cleared.")
 
+
+@dataclass
+class SpotLiftConfig:
+    """
+    Configuration for the Spot lift executor.
+    This class holds the configuration parameters for the Spot lift executor.
+    """
+    column_name: str = "stance_pose_db_be55ce64_LF_[0.0, 0.0, 0.2]_distance_0.05"
+    length: int = 4
+    step_per_times: List[float] = field(default_factory=lambda: [0.03, 0.03, 0.03, 0.03])
+    steps_per_segments: List[int] = field(default_factory=lambda: [10, 10, 10, 10])
+
+class SpotLiftExecutor:
+    """
+    A class to execute the Spot lift route.
+    This class is a placeholder for future implementation of lift route execution.
+    """
+    def __init__(self,
+                 db_ip: str = "localhost",
+                 table_name: str = "spot_lift_action",
+                 dog_node: ai_dog_node = None,
+                 ros_thread: threading.Thread = None
+        ):
+        self.db_ip = db_ip
+        self.table_name = table_name
+        self.spot_lift_action = AsyncSpotLiftActionDB(
+            db_url=f"postgresql+asyncpg://myuser:mypassword@{self.db_ip}:5432/db_actions",
+            table_name=self.table_name
+        )
+        self.points_mapping = {}
+
+        if dog_node is None:
+            dog_node, ros_thread = GymManager().init_ai_dog_node()
+        self.dog_node = dog_node
+        self.ros_thread = ros_thread
+
+    async def get_joint_angles(self, lift_config: SpotLiftConfig) -> List[int]:
+        """
+        Get joint angles for a specific action from the Spot lift action database.
+        """
+        print(f"Running Spot lift executor with config: {lift_config}")
+        print(f"points_mapping: {self.points_mapping}")
+
+
+        print(f"length: {lift_config.length}, column_name: {lift_config.column_name}")
+        points = []
+        for i in range(lift_config.length):
+            # Simulate fetching joint angles from the database
+            print("Fetching joint angles from the database...")
+            joint_angles = await self.spot_lift_action.get_action_joint_angles(
+                lift_config.column_name, i+1)
+            if not joint_angles:
+                print(f"No joint angles found for {lift_config.column_name} at index {i+1}")
+                continue
+            points.append({
+                "joint_angles": json.loads(joint_angles["joint_angle"]),
+                "step_per_time": lift_config.step_per_times[i],
+                "steps_per_segment": lift_config.steps_per_segments[i]
+            })
+        self.points_mapping[lift_config.column_name] = points
+
+    async def run(self, lift_config: SpotLiftConfig) -> None:
+        """
+        Run the Spot lift executor.
+        """
+        await self.execute_route(lift_config)
+        return self.points_mapping.get(lift_config.column_name, [])
+
+    async def execute_route(self, lift_config: SpotLiftConfig) -> None:
+        """
+        Execute the route by playing the Spot route.
+        """
+        if lift_config.column_name not in self.points_mapping:
+            await self.get_joint_angles(lift_config)
+
+        if lift_config.column_name in self.points_mapping:
+            data = self.points_mapping[lift_config.column_name]
+            for start, end in zip(data, data[1:]):
+                self.dog_node.send_joint_angle_trajectory(
+                    start_action=start['joint_angles'],
+                    target_action=end['joint_angles'],
+                    step=start['steps_per_segment'],
+                    delay=start['step_per_time']
+                )
+                print(f"Executed lift action: {lift_config.column_name}, "
+                        f"step: {start['steps_per_segment']}, "
+                        f"delay: {start['step_per_time']}")
+
+    def close(self):
+        """
+        Close the Spot lift action database connection.
+        """
+        GymManager.shutdown_ai_dog_node(self.dog_node, self.ros_thread)
+        print("Spot lift action database connection closed.")
 
 if __name__ == "__main__":
     # Ask for database URL

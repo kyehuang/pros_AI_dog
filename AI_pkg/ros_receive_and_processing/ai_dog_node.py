@@ -4,6 +4,7 @@ following topics:
 """
 import threading
 import copy
+import time
 
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Bool
@@ -115,6 +116,38 @@ class AIDogNode(Node):
         actions_copy = [self.__deg_to_rad(action) for action in actions_copy]
 
         return actions_copy
+
+    def send_joint_angle_trajectory(
+            self,
+            start_action: list,
+            target_action: list,
+            step: int = 10,
+            delay: float = 0.03) -> None:
+        """
+        Send joint angle trajectory to the dog.
+        Args:
+            start_action (list): Start action for the dog.
+            target_action (list): Target action for the dog.
+            step (int): Number of steps to reach the target action.
+            delay (float): Delay between each step in seconds.
+        """
+        # Ensure all values in start_action and target_action are float
+        if not (all(isinstance(action, float) for action in start_action) and
+                all(isinstance(action, float) for action in target_action)):
+            raise ValueError("All actions must be floats.")
+
+        # Arrange the data
+        for i in range(1, step + 1):
+            t = i / (step + 1)
+            interpolated = [
+                (1 - t) * start_action[j] + t * target_action[j]
+                for j in range(len(target_action))
+            ]
+            self.publish_spot_actions(interpolated)
+
+            time.sleep(delay)
+
+        self.publish_spot_actions(target_action)  # Ensure the final action is sent
 
     ## Callback function for subscriber
     def __listener_callback_spot_states(self, msg: Float32MultiArray) -> None:
