@@ -290,6 +290,20 @@ class SpotRouteExecutor:
         self.full_path = []
         print("Path cleared.")
 
+    async def run_start_to_end(self) -> None:
+        """
+        Run the Spot route executor from the start to the end of the computed path.
+        """
+        if not self.full_path:
+            await self.compute_path()
+
+        # Example of running with the first two nodes
+        start_id, end_id = self.full_path[0], self.full_path[-1]
+        print(f"Running with nodes: {start_id} → {end_id}")
+        self.play_spot_route([start_id, end_id],
+                             steps_per_segment=self.steps_per_segment,
+                             step_per_time=self.step_per_time)
+
     def play_spot_route(
             self,
             path_ids,
