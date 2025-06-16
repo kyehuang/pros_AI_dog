@@ -29,7 +29,7 @@ class SpotRouteFinder:
         self.db_url = db_url
         self.table_name = table_name
         self._config = {
-            "unit": 0.05
+            "unit": 0.01
         }
         self.db = None
         self.key_map = {
